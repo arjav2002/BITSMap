@@ -1,0 +1,436 @@
+H_BLOCK_ENTRANCE:
+U 18
+H_BLOCK_START:
+R 18
+D Room H 137
+R 2
+D Room H 136
+R 5
+D Room H 135
+R 5
+D 1
+D Room H 134
+U 1
+U 3
+R Room H 133
+U 5
+R Room H 132
+U 4
+R Room H 131
+U 5
+R Room H 130
+U 2
+L 1
+L Stairs 1 Up NoRamp 1 5
+R 1
+U 2
+R Room H 129
+U 4
+L Stairs 1 Down NoRamp Infinity Infinity
+U 1
+R Room H 128
+U 4
+R Room H 127
+U 5
+R Room H 126
+U 4
+R Room H 125
+U 6
+L 1
+U Room H 124
+L 5
+U Room H 123
+L 4
+U Room H 122
+L 14
+PATH_TO_I_BLOCK:
+L 15
+U Room H 121
+L 8
+U Room H 120
+L 2
+U Room H 119
+D 11
+POINT_A:
+D 9
+R Stairs 6 Up NoRamp 0 -6
+D 5
+R Stairs 6 Down NoRamp Infinity Infinity
+D 8
+L Room H 104
+D 5
+L Room H 103
+D 4
+L Room H 102
+D 3
+L 3
+L Room H 101
+R 3
+D 1
+R 10
+D Room H 101
+Connect H_BLOCK_START
+CLIMB Up Stairs 1
+L Stairs 1 Down NoRamp -1 -5
+U 5
+R Room H 230
+U 5
+R Room H 229
+U 4
+R Room H 228
+U 6
+L 1
+U Room H 227
+L 4
+U Room H 226
+L 5
+U Room H 225
+L 14
+PATH_TO_I_BLOCK_2:
+L 14
+U Room H 224
+L 8
+U Room H 223
+L 3
+U Room H 222
+D 11
+POINT_H:
+D 9
+R Stairs 6 Up NoRamp Infinity Infinity
+D 5
+R Stairs 6 Down NoRamp 0 6
+D 8
+L Room H 208
+D 5
+L Room H 207
+D 4
+L Room H 206
+D 3
+L 3
+D Room H 204
+L 2
+L Room H 205
+R 2
+R 3
+R 1
+D Room H 203
+R 4
+D Room H 202
+R 5
+D Room H 201
+R 26
+D Room H 240
+R 2
+D Room H 239
+R 4
+D Room H 238
+R 6
+R Room H 237
+U 3
+R Room H 236
+U 5
+R Room H 235
+U 4
+R Room H 234
+U 5
+R Room H 233
+U 3
+L Stairs 1 Up NoRamp Infinity Infinity
+U 1
+R Room H 232
+U 4
+Goto PATH_TO_I_BLOCK
+U 18
+L Lift 1 Up Ramp 0 -2
+L Lift 1 Down Ramp 0 0
+U 11
+L Lift 2 Up Ramp 0 -3
+L Lift 2 Down Ramp 0 0
+U 17
+REST_OF_I_BLOCK:
+R 14
+D Room I 128
+R 3
+U Room I 125
+R 2
+D Room I 127
+R 4
+D Room I 126
+L 4
+L 2
+L 3
+U 15
+R Room I 124
+L Stairs 2 Up NoRamp 1 5
+U 5
+L Stairs 2 Down NoRamp Infinity Infinity
+U 14
+R Room I 124
+U Room I 123
+L 27
+U Room I 123
+REST_OF_I_BLOCK2:
+D 4
+L Room I 108
+D 4
+L Room I 107
+D 4
+L Room I 106
+D 19
+L Washroom All
+L DrinkingWater
+D 3
+L 2
+D Room I 102
+L 5
+D Room I 103
+L 4
+D Room I 104
+L 4
+D Room I 105
+R 4
+R 4
+R 5
+R 2
+R 2
+D Room I 101
+Connect REST_OF_I_BLOCK
+Goto REST_OF_I_BLOCK2
+L 5
+U Room I 22
+L 11
+D Room I 109
+L 3
+U Room I 122
+L 3
+D Room I 101
+L 2
+U Room I 121
+L 2
+D Stairs 3 Up NoRamp -3 -1
+L 2
+U Room I 120
+L 3
+D Stairs 3 Down NoRamp Infinity Infinity
+U Room I 119
+D Firehose
+L 4
+U Room I 118
+L 5
+U Room I 117
+L 4
+U Room I 116
+L 4
+U Room I 115
+L 3
+D Room I 111
+L 3
+POINT_D:
+D 15
+L Stairs 4 Up NoRamp 0 8
+D 3
+R Room I 111
+D 3
+L Room I 113
+R Room I 112
+D 13
+L Room I 113
+R Room I 112
+D 3
+L FireExit
+D 3
+D Stairs 7 Down NoRamp 0 0
+D Stairs 7 Up NoRamp 0 0
+Goto POINT_D
+U Room I 115
+L 1
+D Room I 114
+L 5
+U Room I 115
+L 28
+L PATH_TO_J_BLOCK
+D ChessLawns
+CLIMB Up Stairs 7
+D Stairs 7 Up NoRamp 0 0
+D Stairs 7 Down NoRamp 0 0
+U 6
+R Room I 211
+L Room I 212
+U 13
+R Room I 211
+L Room I 212
+U 3
+R Room I 210
+U 3
+L Stairs 4 Up NoRamp Infinity Infinity
+U 8
+L Stairs 4 Down NoRamp 0 -8
+U 6
+L 4
+D FireExtinguisher
+L 10
+U Room I 213
+L 33
+L PATH_TO_J_BLOCK
+R 33
+R 10
+R 4
+R 3
+U Room I 210
+R 4
+U Room I 214
+R 4
+U Room I 215
+R 4
+U Room I 216
+R 4
+U Room I 217
+R 3
+D FireHose
+R 2
+U Room I 218
+R 1
+D Stairs 3 Down NoRamp 3 1
+R 3
+U Room I 219
+R 2
+D Stairs 3 Up NoRamp Infinity Infinity
+R 3
+U Room I 220
+R 2
+D Room I 209
+R 3
+U Room I 221
+R 2
+D Room I 208
+R 12
+U Room I 221
+R 3
+U Room I 222
+R 2
+POINT_Z:
+D 3
+L Room I 207
+D 4
+L Room I 206
+D 23
+L Washroom All
+L DrinkingWater
+D 3
+L 3
+U Room I 202
+L 4
+U Room I 203
+L 5
+U Room I 204
+L 5
+U Room I 205
+R 4
+R 5
+R 4
+R 3
+R 1
+D Room I 201
+R 11
+I_BLOCK_2:
+R 14
+D Room I 227
+R 4
+D Room I 226
+R 5
+D Room I 225
+L 5
+L 4
+U 8
+R Lounge
+U 7
+L Stairs 2 Up NoRamp Infinity Infinity
+U 5
+L Stairs 2 Down NoRamp -1 -5
+U 12
+R Room I 223
+U 2
+L 16
+U Room I 222
+Connect POINT_Z
+Goto POINT_H
+L 5
+U Room H 220
+L 6
+D Washroom All
+D DrinkingWater
+L 11
+U Room H 220
+D FireHose
+L 2
+U Room H 219
+L 1
+D 9
+L Stairs 5 Down NoRamp 0 -4
+D 5
+L Stairs 5 Up NoRamp Infinity Infinity
+U 5
+U 9
+L 3
+U Room H 218
+L 5
+U Room H 217
+L 4
+U Room H 216
+L 5
+U Room H 215
+L 4
+U Room H 214
+L 5
+U Room H 213
+L 4
+U Room H 212
+L 5
+U Room H 211
+L 4
+U Room H 210
+Goto PATH_TO_I_BLOCK_2
+U 17
+L Lift 1 Up Ramp 0 0
+L Lift 1 Down Ramp 0 2
+U 10
+L Lift 2 Up Ramp 0 0
+L Lift 2 Down Ramp 0 3
+Connect I_BLOCK_2
+Goto POINT_A
+L 5
+U Room H 117
+L 6
+D Washroom All
+D DrinkingWater
+L 11
+U Room H 117
+L 2
+U Room H 116
+L 1
+D 9
+L Stairs 5 Down NoRamp Infinity Infinity
+D 5
+L Stairs 5 Up NoRamp 0 4
+U 5
+U 9
+L 3
+U Room H 115
+L 5
+U Room H 114
+L 1
+D Room H 106
+L 3
+U Room H 113
+L 5
+U Room H 112
+L 4
+U Room H 111
+L 5
+U Room H 110
+L 4
+U Room H 109
+L 5
+U Room H 108
+L 4
+U Room H 107
