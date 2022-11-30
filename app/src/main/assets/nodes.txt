@@ -1,18 +1,19 @@
 H_BLOCK_ENTRANCE:
-U 18
+U 10
+R FireExtinguisher
+U 8
 H_BLOCK_START:
-R 18
+R 13
 D Room H 137
 R 2
 D Room H 136
 R 5
 D Room H 135
 R 5
-D 1
-D Room H 134
-U 1
+R Room H 134
 U 3
 R Room H 133
+L FireExtinguisher
 U 5
 R Room H 132
 U 4
@@ -20,9 +21,7 @@ R Room H 131
 U 5
 R Room H 130
 U 2
-L 1
-L Stairs 1 Up NoRamp 1 5
-R 1
+L Stairs 1 Up NoRamp 0 6
 U 2
 R Room H 129
 U 4
@@ -38,9 +37,9 @@ R Room H 125
 U 6
 L 1
 U Room H 124
-L 5
-U Room H 123
 L 4
+U Room H 123
+L 5
 U Room H 122
 L 14
 PATH_TO_I_BLOCK:
@@ -53,7 +52,7 @@ U Room H 119
 D 11
 POINT_A:
 D 9
-R Stairs 6 Up NoRamp 0 -6
+R Stairs 6 Up NoRamp 0 -5
 D 5
 R Stairs 6 Down NoRamp Infinity Infinity
 D 8
@@ -66,13 +65,15 @@ D 3
 L 3
 L Room H 101
 R 3
-D 1
 R 10
 D Room H 101
 Connect H_BLOCK_START
 CLIMB Up Stairs 1
-L Stairs 1 Down NoRamp -1 -5
-U 5
+H_BLOCK_2_START:
+L Stairs 1 Down NoRamp 0 -6
+U 1
+R Room H 231
+U 4
 R Room H 230
 U 5
 R Room H 229
@@ -87,18 +88,18 @@ L 5
 U Room H 225
 L 14
 PATH_TO_I_BLOCK_2:
-L 14
+L 15
 U Room H 224
 L 8
 U Room H 223
-L 3
+L 2
 U Room H 222
 D 11
 POINT_H:
 D 9
 R Stairs 6 Up NoRamp Infinity Infinity
 D 5
-R Stairs 6 Down NoRamp 0 6
+R Stairs 6 Down NoRamp 0 5
 D 8
 L Room H 208
 D 5
@@ -118,7 +119,7 @@ R 4
 D Room H 202
 R 5
 D Room H 201
-R 26
+R 27
 D Room H 240
 R 2
 D Room H 239
@@ -126,29 +127,33 @@ R 4
 D Room H 238
 R 6
 R Room H 237
-U 3
+U 2
+L FireExtinguisher
+U 1
 R Room H 236
+L FireHose
 U 5
 R Room H 235
 U 4
 R Room H 234
 U 5
 R Room H 233
-U 3
+U 2
 L Stairs 1 Up NoRamp Infinity Infinity
-U 1
+U 2
 R Room H 232
-U 4
+Connect H_BLOCK_2_START
 Goto PATH_TO_I_BLOCK
-U 18
-L Lift 1 Up Ramp 0 -2
-L Lift 1 Down Ramp 0 0
-U 11
-L Lift 2 Up Ramp 0 -3
-L Lift 2 Down Ramp 0 0
 U 17
+L Lift 1 Up Ramp 0 0
+L Lift 1 Down Ramp 0 0
+U 10
+L Lift 2 Up Ramp 0 0
+L Lift 2 Down Ramp 0 0
+U 18
 REST_OF_I_BLOCK:
 R 14
+R 1
 D Room I 128
 R 3
 U Room I 125
@@ -159,10 +164,12 @@ D Room I 126
 L 4
 L 2
 L 3
-U 15
+L 1
+U 14
+L Stairs 2 Up NoRamp 0 5
+U 1
 R Room I 124
-L Stairs 2 Up NoRamp 1 5
-U 5
+U 4
 L Stairs 2 Down NoRamp Infinity Infinity
 U 14
 R Room I 124
@@ -170,7 +177,7 @@ U Room I 123
 L 27
 U Room I 123
 REST_OF_I_BLOCK2:
-D 4
+D 3
 L Room I 108
 D 4
 L Room I 107
@@ -197,7 +204,7 @@ D Room I 101
 Connect REST_OF_I_BLOCK
 Goto REST_OF_I_BLOCK2
 L 5
-U Room I 22
+U Room I 122
 L 11
 D Room I 109
 L 3
@@ -207,14 +214,16 @@ D Room I 101
 L 2
 U Room I 121
 L 2
-D Stairs 3 Up NoRamp -3 -1
+D Stairs 3 Up NoRamp -5 0
 L 2
 U Room I 120
 L 3
 D Stairs 3 Down NoRamp Infinity Infinity
+L 1
 U Room I 119
+L 2
 D Firehose
-L 4
+L 3
 U Room I 118
 L 5
 U Room I 117
@@ -226,14 +235,17 @@ L 3
 D Room I 111
 L 3
 POINT_D:
-D 15
+D 14
 L Stairs 4 Up NoRamp 0 8
 D 3
 R Room I 111
+L Firehose
 D 3
 L Room I 113
 R Room I 112
-D 13
+D 2
+R FireExtinguisher
+D 11
 L Room I 113
 R Room I 112
 D 3
@@ -242,8 +254,7 @@ D 3
 D Stairs 7 Down NoRamp 0 0
 D Stairs 7 Up NoRamp 0 0
 Goto POINT_D
-U Room I 115
-L 1
+L 15
 D Room I 114
 L 5
 U Room I 115
@@ -266,15 +277,15 @@ L Stairs 4 Up NoRamp Infinity Infinity
 U 8
 L Stairs 4 Down NoRamp 0 -8
 U 6
-L 4
+L 3
 D FireExtinguisher
-L 10
+L 11
 U Room I 213
 L 33
 L PATH_TO_J_BLOCK
 R 33
-R 10
-R 4
+R 11
+R 3
 R 3
 U Room I 210
 R 4
@@ -290,7 +301,7 @@ D FireHose
 R 2
 U Room I 218
 R 1
-D Stairs 3 Down NoRamp 3 1
+D Stairs 3 Down NoRamp 5 0
 R 3
 U Room I 219
 R 2
@@ -305,7 +316,9 @@ R 2
 D Room I 208
 R 12
 U Room I 221
-R 3
+R 2
+U FireExtinguisher
+R 1
 U Room I 222
 R 2
 POINT_Z:
@@ -313,7 +326,10 @@ D 3
 L Room I 207
 D 4
 L Room I 206
-D 23
+D 22
+R FireExtinguisher
+D 1
+R FireHose
 L Washroom All
 L DrinkingWater
 D 3
@@ -323,7 +339,7 @@ L 4
 U Room I 203
 L 5
 U Room I 204
-L 5
+L 4
 U Room I 205
 R 4
 R 5
@@ -334,6 +350,7 @@ D Room I 201
 R 11
 I_BLOCK_2:
 R 14
+R 1
 D Room I 227
 R 4
 D Room I 226
@@ -341,13 +358,16 @@ R 5
 D Room I 225
 L 5
 L 4
-U 8
+L 1
+U 7
 R Lounge
 U 7
 L Stairs 2 Up NoRamp Infinity Infinity
 U 5
-L Stairs 2 Down NoRamp -1 -5
-U 12
+L Stairs 2 Down NoRamp 0 -5
+U 11
+L FireExtinguisher
+U 1
 R Room I 223
 U 2
 L 16
@@ -366,7 +386,7 @@ L 2
 U Room H 219
 L 1
 D 9
-L Stairs 5 Down NoRamp 0 -4
+L Stairs 5 Down NoRamp 0 -5
 D 5
 L Stairs 5 Up NoRamp Infinity Infinity
 U 5
@@ -392,10 +412,10 @@ U Room H 210
 Goto PATH_TO_I_BLOCK_2
 U 17
 L Lift 1 Up Ramp 0 0
-L Lift 1 Down Ramp 0 2
+L Lift 1 Down Ramp 0 0
 U 10
 L Lift 2 Up Ramp 0 0
-L Lift 2 Down Ramp 0 3
+L Lift 2 Down Ramp 0 0
 Connect I_BLOCK_2
 Goto POINT_A
 L 5
@@ -411,18 +431,18 @@ L 1
 D 9
 L Stairs 5 Down NoRamp Infinity Infinity
 D 5
-L Stairs 5 Up NoRamp 0 4
+L Stairs 5 Up NoRamp 0 5
 U 5
 U 9
 L 3
 U Room H 115
 L 5
 U Room H 114
-L 1
-D Room H 106
-L 3
+D Room H 105
+L 4
 U Room H 113
-L 5
+D Room H 106
+L 4
 U Room H 112
 L 4
 U Room H 111
@@ -434,3 +454,5 @@ L 5
 U Room H 108
 L 4
 U Room H 107
+L 1
+D Room H 106

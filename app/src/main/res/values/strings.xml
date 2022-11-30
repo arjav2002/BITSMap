@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">BITS Map</string>
+    <string name="floorHint">Enter Floor</string>
 </resources>

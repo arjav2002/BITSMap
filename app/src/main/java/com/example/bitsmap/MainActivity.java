@@ -2,6 +2,9 @@ package com.example.bitsmap;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.RelativeLayout;
 
 import androidx.annotation.FloatRange;
@@ -25,6 +28,9 @@ public class MainActivity extends Activity {
 
     private static final double RESOLUTION_M = 0.52;
     private static final double FLOOR_DIFF = 3;
+
+    private EditText et;
+    private Button button;
 
     private Map<String, MapNode> referencePoints;
     private List<MapNode> nodeList;
@@ -162,6 +168,24 @@ public class MainActivity extends Activity {
         relativeLayout = findViewById(R.id.idRLView);
         mapView = new MapView(this, graph, nodeToInfra, nodeList.get(0), infraList);
         relativeLayout.addView(mapView);
+        et = findViewById(R.id.editTextNumber);
+        relativeLayout.bringChildToFront(et);
+        button = findViewById(R.id.button);
+        button.setOnClickListener((View view) -> {
+            String txt = et.getText().toString();
+            try {
+                int floor = Integer.parseInt(txt);
+                if(floor != 0 && floor != 1) throw new Exception("Floor unavailable: " + floor);
+
+                if(floor == 1)
+                    mapView.setStartNode(nodeList.get(37));
+                else if(floor == 0)
+                    mapView.setStartNode(nodeList.get(0));
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     private class HeapNode implements Comparable<HeapNode> {
@@ -348,7 +372,7 @@ public class MainActivity extends Activity {
     private FloorChanger handleFloorChanger(String[] params, Orientation orientation, Vec3D position) {
         FloorChanger fc;
 
-        String name = getRoomName(params);
+        String name = "";
         Infratype infratype = null;
         int index = Integer.parseInt(params[1]);
         boolean accessible;
@@ -374,6 +398,8 @@ public class MainActivity extends Activity {
                 zd = -1;
             }
         }
+
+        name += params[0] + params[2] + params[1];
 
         accessible = !params[3].equals("NoRamp");
         xd = Double.parseDouble(params[4]);
