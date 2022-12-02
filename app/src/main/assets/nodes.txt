@@ -1,4 +1,5 @@
 H_BLOCK_ENTRANCE:
+D Stairs 8 Down Ramp 0 0
 U 10
 R FireExtinguisher
 U 8

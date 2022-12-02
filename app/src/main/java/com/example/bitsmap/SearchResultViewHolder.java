@@ -36,10 +36,9 @@ public class SearchResultViewHolder extends RecyclerView.Adapter<RecyclerView.Vi
         SearchResult searchResult = searchResults.get(position);
         MapNode node = searchResult.getMapNode();
 
-        System.out.println("Bound: " + searchResult.getHighlightedInfra().getName());
         searchResultHolder.resultButton.setText(searchResult.getHighlightedInfra().getName() + ", Floor: " + (int)node.getPosition().getZ() + ", Node ID: " + node.getId());
         searchResultHolder.resultButton.setOnClickListener((View view) -> {
-            mainActivity.focusNode(searchResult.getMapNode());
+            mainActivity.focusInfra(searchResult.getHighlightedInfra());
         });
 
         searchResultHolder.resultButton.setVisibility(View.VISIBLE);

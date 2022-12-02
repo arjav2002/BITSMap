@@ -49,7 +49,7 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     private float lastSpanX;
     private float lastSpanY;
 
-    private Matrix matrix;
+    private Matrix worldToScreen;
 
     private RotationGestureDetector mRotationDetector;
     private float lastAngle;
@@ -81,6 +81,8 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     private static final float CHAR_FACTOR = 0.6f;
     private static final float DOOR_THICKNESS = 0.2f;
     private static final float DOOR_LENGTH = 1.5f;
+    private static final float NODE_CENTER_SCALE_FACTOR = 30f;
+    private static final float SCALE_SPEED = 1.00005f;
 
     private final float textSize;
 
@@ -94,9 +96,9 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
         ((Activity) getContext()).getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
         displayHeight = displayMetrics.heightPixels;
         displayWidth = displayMetrics.widthPixels;
-        matrix = new Matrix();
-        matrix.postScale(scaleFactor, -scaleFactor);
-        matrix.postTranslate(displayWidth/2, 3*displayHeight/4);
+        worldToScreen = new Matrix();
+        worldToScreen.postScale(scaleFactor, -scaleFactor);
+        worldToScreen.postTranslate(displayWidth/2, 3*displayHeight/4);
         lastAngle = 0;
 
         this.graph = graph;
@@ -192,7 +194,7 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
                 startFingerY = event.getY();
 
                 if(Math.sqrt(translateX*translateX + translateY*translateY) < MAX_DRAG_SPEED) {
-                    matrix.postTranslate(translateX, translateY);
+                    worldToScreen.postTranslate(translateX, translateY);
                 }
                 invalidate();
                 break;
@@ -214,7 +216,7 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
 
         canvas.save();
 
-        canvas.setMatrix(matrix);
+        canvas.setMatrix(worldToScreen);
 
         drawStuff(canvas);
 
@@ -392,11 +394,11 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
             scaleFactor = detector.getScaleFactor();
 
             mutex.lock();
-            matrix.getValues(values);
+            worldToScreen.getValues(values);
 
-            matrix.postTranslate(-lastSpanX, -lastSpanY);
-            matrix.postScale(scaleFactor, scaleFactor);
-            matrix.postTranslate(lastSpanX, lastSpanY);
+            worldToScreen.postTranslate(-lastSpanX, -lastSpanY);
+            worldToScreen.postScale(scaleFactor, scaleFactor);
+            worldToScreen.postTranslate(lastSpanX, lastSpanY);
 
             invalidate();
             mutex.unlock();
@@ -407,7 +409,7 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
 
     void getWorldCoord(float[] sc) {
         Matrix inverse = new Matrix();
-        assert(matrix.invert(inverse));
+        assert(worldToScreen.invert(inverse));
 
         mutex.lock();
         inverse.getValues(values);
@@ -426,7 +428,7 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
 
     void getScreenCoords(float[] wc) {
         mutex.lock();
-        matrix.getValues(values);
+        worldToScreen.getValues(values);
 
         float sc[] = {0, 0, 0};
         for(int i = 0; i < 3; i++) {
@@ -459,7 +461,15 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
         float[] screenCoords = {(float)worldCoord.getX(), (float)worldCoord.getY(), 1};
         getScreenCoords(screenCoords);
 
-        matrix.postTranslate(-screenCoords[0] + (float)displayWidth/2, -screenCoords[1] + (float)displayHeight/2);
+        float dx = -screenCoords[0] + (float)displayWidth/2;
+        float dy = -screenCoords[1] + (float)displayHeight/2;
+
+        worldToScreen.postTranslate(dx, dy);
+
+        do {
+            worldToScreen.postScale(SCALE_SPEED, SCALE_SPEED, (float)displayWidth/2, (float)displayHeight/2);
+            worldToScreen.getValues(values);
+        } while(values[0] < NODE_CENTER_SCALE_FACTOR);
 
         invalidate();
         mutex.unlock();

@@ -1,10 +1,15 @@
 package com.example.bitsmap;
 
 import android.app.Activity;
+import android.media.Image;
 import android.os.Bundle;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 
 import androidx.appcompat.widget.SearchView;
@@ -13,6 +18,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -29,9 +35,6 @@ public class MainActivity extends Activity {
     private static final double RESOLUTION_M = 0.52;
     private static final double FLOOR_DIFF = 3;
 
-    private EditText et;
-    private Button button;
-
     private Map<String, MapNode> referencePoints;
     private List<MapNode> nodeList;
     private Map<Vec3D, MapNode> nodeMap;
@@ -47,6 +50,9 @@ public class MainActivity extends Activity {
 
     private SearchView searchView;
     private RecyclerView searchResultsView;
+
+    private LinearLayout floorButtonsLayout;
+    private Set<Integer> floorSet;
 
     private SearchResultViewHolder searchResultViewHolder;
 
@@ -68,6 +74,7 @@ public class MainActivity extends Activity {
         nodeToInfra = new HashMap<>();
         floorChangerMap = new HashMap<>();
         graph = new HashMap<>();
+        floorSet = new HashSet<>();
 
         try {
             Scanner sc = new Scanner(getAssets().open("nodes.txt"));
@@ -183,7 +190,6 @@ public class MainActivity extends Activity {
         relativeLayout.addView(mapView);
         mapViewOn = true;
 
-        et = findViewById(R.id.editTextNumber);
         searchView = findViewById(R.id.searchView);
         searchResultsView = findViewById(R.id.searchResultsRecycler);
         relativeLayout.removeView(searchResultsView);
@@ -192,36 +198,7 @@ public class MainActivity extends Activity {
         searchView.clearFocus();
         searchFocus = false;
 
-        button = findViewById(R.id.button);
-        button.setOnClickListener((View view) -> {
-            String txt = et.getText().toString();
-            try {
-                int floor = Integer.parseInt(txt);
-                if(floor != 0 && floor != 1) throw new Exception("Floor unavailable: " + floor);
-
-                if(floor == 1)
-                    mapView.setStartNode(nodeList.get(35));
-                else if(floor == 0)
-                    mapView.setStartNode(nodeList.get(0));
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
-
-
-//        searchBox.setOnClickListener((View view) -> {
-//            if(mapViewOn) {
-//                relativeLayout.removeView(mapView);
-//            }
-//            else {
-//                relativeLayout.addView(mapView);
-//                relativeLayout.bringChildToFront(et);
-//                relativeLayout.bringChildToFront(searchBox);
-//            }
-//
-//            mapViewOn = !mapViewOn;
-//        });
+        initializeFloorButtons();
 
         searchResults = new ArrayList<>();
         searchResultsView.setLayoutManager(new LinearLayoutManager(this));
@@ -232,6 +209,7 @@ public class MainActivity extends Activity {
 
             if(hasFocus && mapViewOn) {
                 relativeLayout.removeView(mapView);
+                relativeLayout.removeView(floorButtonsLayout);
                 relativeLayout.addView(searchResultsView);
                 mapViewOn = false;
             }
@@ -250,6 +228,50 @@ public class MainActivity extends Activity {
                 return false;
             }
         });
+
+
+    }
+
+    private void initializeFloorButtons() {
+        floorButtonsLayout = findViewById(R.id.floorButtonsLayout);
+        Integer[] floorArr = new Integer[floorSet.size()];
+        floorSet.toArray(floorArr);
+        Arrays.sort(floorArr);
+        for(int floor : floorArr) {
+            Button floorButton = (Button) LayoutInflater.from(this).inflate(R.layout.floor_button, null);
+            floorButton.setText(String.valueOf(floor));
+            floorButton.setOnClickListener((View view) -> {
+                int btnFloor = Integer.parseInt(((Button) view).getText().toString());
+                moveToFloor(btnFloor);
+            });
+
+            floorButtonsLayout.addView(floorButton, 0);
+            floorButton.setTextSize((int)MapView.pxFromDp(this, 12));
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams((int)MapView.pxFromDp(this, 60), (int)MapView.pxFromDp(this, 60));
+            params.setMargins(10, 10, 10, 10);
+            floorButton.setLayoutParams(params);
+        }
+
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams((int)MapView.pxFromDp(this, 60), (int)MapView.pxFromDp(this, 60));
+        params.setMargins(10, 0, 10, 10);
+        floorButtonsLayout.getChildAt(0).setLayoutParams(params);
+        params.setMargins(10, 10, 10, 0);
+        floorButtonsLayout.getChildAt(floorButtonsLayout.getChildCount()-1).setLayoutParams(params);
+
+        LinearLayout.LayoutParams arrowParams = new LinearLayout.LayoutParams((int)MapView.pxFromDp(this, 40), (int)MapView.pxFromDp(this, 40));
+        arrowParams.setMargins(0, 0, 0, 0);
+
+        ImageView upArrow = new ImageView(this);
+        upArrow.setImageDrawable(getResources().getDrawable(R.drawable.ic_baseline_keyboard_arrow_up_24));
+        floorButtonsLayout.addView(upArrow, 0, arrowParams);
+
+        ImageView downArrow = new ImageView(this);
+        downArrow.setImageDrawable(getResources().getDrawable(R.drawable.ic_baseline_keyboard_arrow_down_24));
+        floorButtonsLayout.addView(downArrow, arrowParams);
+
+        // try to refresh floorButtonsLayout, invalidate() with/without requestLayout() doesn't work
+        relativeLayout.removeView(floorButtonsLayout);
+        relativeLayout.addView(floorButtonsLayout);
     }
 
     @Override
@@ -262,18 +284,33 @@ public class MainActivity extends Activity {
     public void focusLocation(Vec3D worldCoords) {
         moveToMapView();
         searchView.clearFocus();
+        moveToFloor((int)worldCoords.getZ());
         mapView.centerWorldCoords(worldCoords);
     }
 
     public void focusNode(MapNode node) {
         moveToMapView();
         searchView.clearFocus();
-        mapView.setShowCoordNode(node);
+        moveToFloor((int)node.getPosition().getZ());
         mapView.centerWorldCoords(node.getPosition());
+        mapView.setShowCoordNode(node);
+    }
+
+    public void focusInfra(Infra infra) {
+        searchView.setQuery(infra.getName() + ", Floor: " + (int)infra.getPosition().getZ(), false);
+        focusNode(infra.getMapNode());
+    }
+
+    private void moveToFloor(int floor) {
+        if(floor == 1)
+            mapView.setStartNode(nodeList.get(35));
+        else if(floor == 0)
+            mapView.setStartNode(nodeList.get(0));
     }
 
     private void moveToMapView() {
         relativeLayout.addView(mapView);
+        relativeLayout.addView(floorButtonsLayout);
         relativeLayout.removeView(searchResultsView);
         mapViewOn = true;
         bringHudToFront();
@@ -293,8 +330,8 @@ public class MainActivity extends Activity {
     }
 
     private void bringHudToFront() {
-        relativeLayout.bringChildToFront(et);
         relativeLayout.bringChildToFront(searchView);
+        relativeLayout.bringChildToFront(floorButtonsLayout);
     }
 
 
@@ -431,6 +468,8 @@ public class MainActivity extends Activity {
         }
 
         lastNode = nodeMap.get(pos);
+
+        floorSet.add((int)pos.getZ());
     }
 
     private static String getRoomName(String[] params) {

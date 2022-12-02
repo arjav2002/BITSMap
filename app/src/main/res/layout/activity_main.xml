@@ -7,45 +7,44 @@
     android:layout_height="match_parent"
     android:layout_x="10dp"
     android:layout_y="20dp"
-    android:background="@color/black"
+    android:background="@color/search_background_gray"
     tools:context=".MainActivity">
-
-    <EditText
-        android:id="@+id/editTextNumber"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:ems="10"
-        android:hint="@string/floorHint"
-        android:inputType="number" />
-
-    <Button
-        android:id="@+id/button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:layout_marginStart="8dp"
-        android:layout_toEndOf="@+id/editTextNumber"
-        android:text="Button" />
 
     <androidx.appcompat.widget.SearchView
         android:id="@+id/searchView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@drawable/search_view_rounded_corners"
-        android:backgroundTint="@color/search_bar_gray"
-        app:iconifiedByDefault="false"
         android:layout_margin="8dp"
-        app:queryHint="Search here..." >
-    </androidx.appcompat.widget.SearchView>
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="8dp"
+        android:background="@drawable/search_view_rounded_corners"
+        android:backgroundTint="@color/black"
+        app:iconifiedByDefault="false"
+        app:queryHint="Search here..." />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/searchResultsRecycler"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_below="@+id/searchView"
+        android:layout_marginStart="8dp"
         android:layout_marginLeft="8dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="8dp"
         android:layout_marginRight="8dp"
-        android:layout_marginTop="0dp" />
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:id="@+id/floorButtonsLayout"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:paddingStart="5dp"
+        android:paddingEnd="5dp"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:layout_alignTop="@+id/searchView"
+        android:layout_alignParentStart="true" />
 
 </RelativeLayout>
