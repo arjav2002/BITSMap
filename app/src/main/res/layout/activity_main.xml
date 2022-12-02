@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/idRLView"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:layout_x="10dp"
+    android:layout_y="20dp"
+    android:background="@color/black"
     tools:context=".MainActivity">
 
     <EditText
@@ -24,4 +27,25 @@
         android:layout_marginStart="8dp"
         android:layout_toEndOf="@+id/editTextNumber"
         android:text="Button" />
+
+    <androidx.appcompat.widget.SearchView
+        android:id="@+id/searchView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/search_view_rounded_corners"
+        android:backgroundTint="@color/search_bar_gray"
+        app:iconifiedByDefault="false"
+        android:layout_margin="8dp"
+        app:queryHint="Search here..." >
+    </androidx.appcompat.widget.SearchView>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/searchResultsRecycler"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/searchView"
+        android:layout_marginLeft="8dp"
+        android:layout_marginRight="8dp"
+        android:layout_marginTop="0dp" />
+
 </RelativeLayout>

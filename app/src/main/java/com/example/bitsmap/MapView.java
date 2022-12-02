@@ -15,6 +15,7 @@ import android.view.View;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class MapView extends View implements RotationGestureDetector.OnRotationGestureListener {
 
@@ -61,17 +62,27 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     private Paint linePaint;
     private Paint textPaint;
     private Paint bgPaint;
+    private Paint pathPaint;
+    private Paint doorPaint;
     private Paint showCoordbgPaint;
     private Paint showCoordTextPaint;
     private MapNode showCoordNode;
 
+    private ReentrantLock mutex;
+
     private static final float nodeRadius = 0.2f;
+    private static final float pathWidth = 3f;
     private static final float pathThickness = 0.2f;
     private static final float MAX_DRAG_SPEED = 500;
     private static final float TEXT_DP = 0.5f;
     private static final float SHOW_COORD_DIST = 1;
     private static final float SHOW_COORD_CHAR_WIDTH = 0.6f;
     private static final float SHOW_COORD_HEIGHT = 2.5f;
+    private static final float CHAR_FACTOR = 0.6f;
+    private static final float DOOR_THICKNESS = 0.2f;
+    private static final float DOOR_LENGTH = 1.5f;
+
+    private final float textSize;
 
     private boolean[] visited;
 
@@ -97,6 +108,14 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
         nodePaint.setStyle(Paint.Style.FILL);
         nodePaint.setTextSize(pxFromDp(context, TEXT_DP));
 
+        pathPaint = new Paint();
+        pathPaint.setColor(getResources().getColor(R.color.path_color));
+        pathPaint.setStyle(Paint.Style.FILL);
+
+        doorPaint = new Paint();
+        doorPaint.setColor(getResources().getColor(R.color.black));
+        doorPaint.setStyle(Paint.Style.FILL);
+
         linePaint = new Paint();
         linePaint.setColor(getResources().getColor(R.color.teal_200));
         linePaint.setStyle(Paint.Style.FILL);
@@ -110,19 +129,24 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
 
         visited = new boolean[graph.keySet().size()];
 
+        textSize = pxFromDp(context, TEXT_DP);
+
         textPaint = new Paint(Paint.LINEAR_TEXT_FLAG | Paint.ANTI_ALIAS_FLAG);
         textPaint.setColor(Color.BLACK);
-        textPaint.setTextSize(pxFromDp(context, TEXT_DP));
+        textPaint.setTextSize(textSize);
+        textPaint.setTextAlign(Paint.Align.LEFT);
 
         showCoordTextPaint = new Paint(Paint.LINEAR_TEXT_FLAG | Paint.ANTI_ALIAS_FLAG);
         showCoordTextPaint.setColor(Color.BLUE);
-        showCoordTextPaint.setTextSize(pxFromDp(context, TEXT_DP));
+        showCoordTextPaint.setTextSize(textSize);
 
         bgPaint = new Paint();
-        bgPaint.setColor(Color.LTGRAY);
+        bgPaint.setColor(Color.WHITE);
         bgPaint.setStyle(Paint.Style.FILL);
 
         showCoordNode = null;
+
+        mutex = new ReentrantLock();
     }
 
     // below method is use to generate px from DP.
@@ -152,16 +176,12 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
                     }
                 }
 
-                MapNode oldNode = showCoordNode;
-
                 if (minDist < SHOW_COORD_DIST) {
-                    showCoordNode = x;
+                    setShowCoordNode(x);
                 }
                 else {
                     showCoordNode = null;
                 }
-
-                if(showCoordNode != oldNode) invalidate();
 
                 break;
 
@@ -213,29 +233,56 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
                 Infra infra = infraList.get(id);
 //                if(infra.getInfratype() != Infratype.Room) continue;
 
+                int textLength = infra.getName().length();
                 float rotateAngle = 0;
                 float dx = 0, dy = 0;
+                float dr = 0, dt = 0, dl = 0, db = 0;
                 if(infra.getOrientation() == Orientation.Down) {
                     rotateAngle = 90;
-                    dx = -4;
+                    dx = -pathWidth/2 - textLength*textSize*CHAR_FACTOR - 0.3f;
+                    dy = 0.35f*textSize;
+
+                    dl = -pathWidth/2 - DOOR_THICKNESS;
+                    dr = -pathWidth/2;
+                    dt = DOOR_LENGTH/2;
+                    db = -DOOR_LENGTH/2;
                 }
                 else if(infra.getOrientation() == Orientation.Up) {
                     rotateAngle = 90;
-                    dx = nodeRadius+1;
+                    dx = pathWidth/2 + 0.6f;
+                    dy = 0.35f*textSize;
+
+                    dl = pathWidth/2 + DOOR_THICKNESS;
+                    dr = pathWidth/2;
+                    dt = DOOR_LENGTH/2;
+                    db = -DOOR_LENGTH/2;
                 }
                 else if(infra.getOrientation() == Orientation.Left) {
                     rotateAngle = 0;
-                    dx = -4;
+                    dx = -pathWidth/2 - textLength*textSize*CHAR_FACTOR;
+                    dy = 0.35f*textSize;
+
+                    dl = -pathWidth/2 - DOOR_THICKNESS;
+                    dr = -pathWidth/2;
+                    dt = DOOR_LENGTH/2;
+                    db = -DOOR_LENGTH/2;
                 }
                 else if(infra.getOrientation() == Orientation.Right) {
                     rotateAngle =  0;
-                    dx = nodeRadius+1;
+                    dx = pathWidth/2 + 0.5f;
+                    dy = 0.35f*textSize;
+
+                    dl = pathWidth/2;
+                    dr = pathWidth/2 + DOOR_THICKNESS;
+                    dt = DOOR_LENGTH/2;
+                    db = -DOOR_LENGTH/2;
                 }
 
                 canvas.translate((float) node.getPosition().getX(), (float) node.getPosition().getY());
                 canvas.rotate(rotateAngle);
                 canvas.scale(1, -1);
-                canvas.drawText(infra.getName(), dx, 0, textPaint);
+                canvas.drawText(infra.getName(), dx, dy, textPaint);
+                canvas.drawRect(dl, dt, dr, db, doorPaint);
                 canvas.scale(1, -1);
                 canvas.rotate(-rotateAngle);
                 canvas.translate((float) -node.getPosition().getX(), (float) -node.getPosition().getY());
@@ -244,10 +291,29 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
 
         for(MapNode n : graph.get(node)) {
             if(n.getPosition().getZ() != node.getPosition().getZ()) continue;
-            canvas.drawLine((float)node.getPosition().getX(), (float)node.getPosition().getY(),
-                            (float)n.getPosition().getX(), (float)n.getPosition().getY(), linePaint);
+
+            float left = (float)Math.min(n.getPosition().getX(), node.getPosition().getX()) - pathWidth / 2;
+            float right = (float)Math.max(n.getPosition().getX(), node.getPosition().getX()) + pathWidth / 2;
+            float top = (float)Math.max(n.getPosition().getY(), node.getPosition().getY()) + pathWidth / 2;
+            float bottom = (float)Math.min(n.getPosition().getY(), node.getPosition().getY()) - pathWidth / 2;
+            canvas.drawRect(left, top, right, bottom, pathPaint);
 
             drawConnections(canvas, visited, n);
+        }
+    }
+
+    private void drawLines(Canvas canvas, boolean[] visited, MapNode node) {
+        if(visited[node.getId()]) return;
+
+        visited[node.getId()] = true;
+
+        for(MapNode n : graph.get(node)) {
+            if(n.getPosition().getZ() != node.getPosition().getZ()) continue;
+
+            canvas.drawLine((float)node.getPosition().getX(), (float)node.getPosition().getY(),
+                    (float)n.getPosition().getX(), (float)n.getPosition().getY(), linePaint);
+
+            drawLines(canvas, visited, n);
         }
     }
 
@@ -256,6 +322,9 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
 
         Arrays.fill(visited, false);
         drawConnections(canvas, visited, startNode);
+
+//        Arrays.fill(visited, false);
+//        drawLines(canvas, visited, startNode);
 
         for(MapNode node : graph.keySet()) {
             if(node.getPosition().getZ() != startNode.getPosition().getZ()) continue;
@@ -322,6 +391,7 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
 
             scaleFactor = detector.getScaleFactor();
 
+            mutex.lock();
             matrix.getValues(values);
 
             matrix.postTranslate(-lastSpanX, -lastSpanY);
@@ -329,6 +399,7 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
             matrix.postTranslate(lastSpanX, lastSpanY);
 
             invalidate();
+            mutex.unlock();
 
             return true;
         }
@@ -337,6 +408,8 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     void getWorldCoord(float[] sc) {
         Matrix inverse = new Matrix();
         assert(matrix.invert(inverse));
+
+        mutex.lock();
         inverse.getValues(values);
 
         float wc[] = {0, 0, 0};
@@ -348,11 +421,47 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
 
         sc[0] = wc[0]/wc[2];
         sc[1] = wc[1]/wc[2];
+        mutex.unlock();
+    }
+
+    void getScreenCoords(float[] wc) {
+        mutex.lock();
+        matrix.getValues(values);
+
+        float sc[] = {0, 0, 0};
+        for(int i = 0; i < 3; i++) {
+            for(int j = 0; j < 3; j++) {
+                sc[i] += values[3*i + j] * wc[j];
+            }
+        }
+
+        wc[0] = sc[0]/sc[2];
+        wc[1] = sc[1]/sc[2];
+        mutex.unlock();
     }
 
     public void setStartNode(MapNode startNode) {
         this.startNode = startNode;
         showCoordNode = null;
         invalidate();
+    }
+
+    public void setShowCoordNode(MapNode showCoordNode) {
+        if(showCoordNode != this.showCoordNode) {
+            this.showCoordNode = showCoordNode;
+            invalidate();
+        }
+    }
+
+    public void centerWorldCoords(Vec3D worldCoord) {
+        mutex.lock();
+
+        float[] screenCoords = {(float)worldCoord.getX(), (float)worldCoord.getY(), 1};
+        getScreenCoords(screenCoords);
+
+        matrix.postTranslate(-screenCoords[0] + (float)displayWidth/2, -screenCoords[1] + (float)displayHeight/2);
+
+        invalidate();
+        mutex.unlock();
     }
 }

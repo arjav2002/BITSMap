@@ -7,22 +7,22 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.RelativeLayout;
 
-import androidx.annotation.FloatRange;
+import androidx.appcompat.widget.SearchView;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
 
 public class MainActivity extends Activity {
 
@@ -42,6 +42,16 @@ public class MainActivity extends Activity {
     private MapNode lastNode;
     private RelativeLayout relativeLayout;
     private MapView mapView;
+
+    private ArrayList<SearchResult> searchResults;
+
+    private SearchView searchView;
+    private RecyclerView searchResultsView;
+
+    private SearchResultViewHolder searchResultViewHolder;
+
+    private boolean mapViewOn;
+    private boolean searchFocus;
 
     // For floor changer nodes, make sure the other Delta corresponds to the actual node.
     // Each floorchanger node connects to only its directly upper and lower neighbours
@@ -95,6 +105,7 @@ public class MainActivity extends Activity {
                         if(infraType.equals("Room")) {
                             String roomName = getRoomName(params);
                             infra = new Infra(roomName, infraList.size(), curPos, Infratype.Room, orientation, lastNode);
+                            infraList.add(infra);
                         }
                         else if(infraType.equals("Stairs") || infraType.equals("Lift")) {
                             infra = handleFloorChanger(params, orientation, curPos);
@@ -102,12 +113,14 @@ public class MainActivity extends Activity {
                         else if(infraType.equals("Washroom")) {
                             String washroomType = params[1];
                             infra = new Infra("Washroom" + washroomType, infraList.size(), curPos, Infratype.Washroom, orientation, lastNode);
+                            infraList.add(infra);
                         }
                         else {
                             infra = new Infra(infraType, infraList.size(), curPos, Infratype.DrinkingWater, orientation, lastNode);
+                            infraList.add(infra);
                         }
 
-                        infraList.add(infra);
+
                         if(!nodeToInfra.containsKey(lastNode)) {
                             nodeToInfra.put(lastNode, new ArrayList<>());
                         }
@@ -168,8 +181,17 @@ public class MainActivity extends Activity {
         relativeLayout = findViewById(R.id.idRLView);
         mapView = new MapView(this, graph, nodeToInfra, nodeList.get(0), infraList);
         relativeLayout.addView(mapView);
+        mapViewOn = true;
+
         et = findViewById(R.id.editTextNumber);
-        relativeLayout.bringChildToFront(et);
+        searchView = findViewById(R.id.searchView);
+        searchResultsView = findViewById(R.id.searchResultsRecycler);
+        relativeLayout.removeView(searchResultsView);
+        bringHudToFront();
+
+        searchView.clearFocus();
+        searchFocus = false;
+
         button = findViewById(R.id.button);
         button.setOnClickListener((View view) -> {
             String txt = et.getText().toString();
@@ -178,7 +200,7 @@ public class MainActivity extends Activity {
                 if(floor != 0 && floor != 1) throw new Exception("Floor unavailable: " + floor);
 
                 if(floor == 1)
-                    mapView.setStartNode(nodeList.get(37));
+                    mapView.setStartNode(nodeList.get(35));
                 else if(floor == 0)
                     mapView.setStartNode(nodeList.get(0));
             }
@@ -186,7 +208,95 @@ public class MainActivity extends Activity {
                 e.printStackTrace();
             }
         });
+
+
+//        searchBox.setOnClickListener((View view) -> {
+//            if(mapViewOn) {
+//                relativeLayout.removeView(mapView);
+//            }
+//            else {
+//                relativeLayout.addView(mapView);
+//                relativeLayout.bringChildToFront(et);
+//                relativeLayout.bringChildToFront(searchBox);
+//            }
+//
+//            mapViewOn = !mapViewOn;
+//        });
+
+        searchResults = new ArrayList<>();
+        searchResultsView.setLayoutManager(new LinearLayoutManager(this));
+        searchResultViewHolder = new SearchResultViewHolder(this, searchResults, searchResultsView);
+
+        searchView.setOnQueryTextFocusChangeListener ((View v, boolean hasFocus) -> {
+            searchFocus = hasFocus;
+
+            if(hasFocus && mapViewOn) {
+                relativeLayout.removeView(mapView);
+                relativeLayout.addView(searchResultsView);
+                mapViewOn = false;
+            }
+        });
+
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                return false;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                filterSearchResults(newText);
+                searchResultViewHolder.notifyDataSetChanged();
+                return false;
+            }
+        });
     }
+
+    @Override
+    public void onBackPressed() {
+        if(!searchFocus && !mapViewOn) {
+            moveToMapView();
+        }
+    }
+
+    public void focusLocation(Vec3D worldCoords) {
+        moveToMapView();
+        searchView.clearFocus();
+        mapView.centerWorldCoords(worldCoords);
+    }
+
+    public void focusNode(MapNode node) {
+        moveToMapView();
+        searchView.clearFocus();
+        mapView.setShowCoordNode(node);
+        mapView.centerWorldCoords(node.getPosition());
+    }
+
+    private void moveToMapView() {
+        relativeLayout.addView(mapView);
+        relativeLayout.removeView(searchResultsView);
+        mapViewOn = true;
+        bringHudToFront();
+    }
+
+    private void filterSearchResults(String filterText) {
+        searchResults.clear();
+
+        if(!filterText.isEmpty()) {
+            for (Infra infra : infraList) {
+                if (infra.getName().toLowerCase(Locale.ROOT).contains(filterText.toLowerCase(Locale.ROOT))) {
+                    searchResults.add(new SearchResult(infra, infra.getMapNode()));
+                }
+            }
+        }
+
+    }
+
+    private void bringHudToFront() {
+        relativeLayout.bringChildToFront(et);
+        relativeLayout.bringChildToFront(searchView);
+    }
+
 
     private class HeapNode implements Comparable<HeapNode> {
         double dist;
