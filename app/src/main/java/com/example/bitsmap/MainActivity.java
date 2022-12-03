@@ -9,6 +9,7 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
+import android.widget.TextView;
 
 import androidx.appcompat.widget.SearchView;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -50,6 +51,7 @@ public class MainActivity extends Activity {
     private RecyclerView searchResultsView;
 
     private LinearLayout floorButtonsLayout;
+    private RelativeLayout navigationLayout;
     private Set<Integer> floorSet;
 
     private SearchResultViewHolder searchResultViewHolder;
@@ -66,6 +68,8 @@ public class MainActivity extends Activity {
     public Infra startInfra;
     public Infra destinationInfra;
     private ArrayList<MapNode> path;
+
+    private int currentPathIndex;
 
     // For floor changer nodes, make sure the other Delta corresponds to the actual node.
     // Each floorchanger node connects to only its directly upper and lower neighbours
@@ -245,6 +249,7 @@ public class MainActivity extends Activity {
     }
 
     private void moveToDirections() {
+        mapView.setHighlightNode(null);
         lookingForDirections = true;
         selectingSourceLocation = selectingDestinationLocation = false;
         relativeLayout.removeAllViews();
@@ -354,7 +359,58 @@ public class MainActivity extends Activity {
 
             relativeLayout.addView(directionsButton, directionsButton.getLayoutParams());
             directionsButton.setOnClickListener((view) -> {
+                relativeLayout.removeView(sourceSearchView);
+                relativeLayout.removeView(destinationSearchView);
+                relativeLayout.removeView(directionsButton);
 
+                navigationLayout = (RelativeLayout) LayoutInflater.from(this).inflate(R.layout.navigation_prompt, relativeLayout);
+
+                TextView textView = navigationLayout.findViewById(R.id.promptView);
+                currentPathIndex = 0;
+
+                if(path.size() >= 2) {
+                    currentPathIndex++;
+                    textView.setText("Goto " + path.get(currentPathIndex).getPosition());
+                    mapView.setHighlightNode(path.get(currentPathIndex-1));
+                    navigationLayout.findViewById(R.id.prevBtn).setBackgroundColor(getResources().getColor(R.color.search_background_gray));
+                }
+
+
+                relativeLayout.findViewById(R.id.nextBtn).setOnClickListener((v) -> {
+                    if(currentPathIndex <= path.size()-2) {
+                        currentPathIndex++;
+                        textView.setText("Goto " + path.get(currentPathIndex).getPosition());
+                        mapView.setHighlightNode(path.get(currentPathIndex-1));
+
+                        System.out.println(currentPathIndex);
+                    }
+
+                    if(currentPathIndex > path.size()-2) {
+                        navigationLayout.findViewById(R.id.nextBtn).setBackgroundColor(getResources().getColor(R.color.search_background_gray));
+                    }
+
+                    if(currentPathIndex >= 2) {
+                        navigationLayout.findViewById(R.id.prevBtn).setBackgroundColor(getResources().getColor(R.color.white));
+                    }
+                });
+
+                relativeLayout.findViewById(R.id.prevBtn).setOnClickListener((v) -> {
+                    if(currentPathIndex >= 2) {
+                        currentPathIndex--;
+                        textView.setText("Goto " + path.get(currentPathIndex).getPosition());
+                        mapView.setHighlightNode(path.get(currentPathIndex-1));
+                    }
+
+                    if(currentPathIndex < 2) {
+                        navigationLayout.findViewById(R.id.prevBtn).setBackgroundColor(getResources().getColor(R.color.search_background_gray));
+                    }
+
+                    if(currentPathIndex <= path.size()-2) {
+                        navigationLayout.findViewById(R.id.nextBtn).setBackgroundColor(getResources().getColor(R.color.white));
+                    }
+                });
+
+                moveToFloor((int)path.get(0).getPosition().getZ());
             });
         }
 
@@ -469,13 +525,32 @@ public class MainActivity extends Activity {
             mapView.setStartNode(nodeList.get(35));
         else if(floor == 0)
             mapView.setStartNode(nodeList.get(0));
+
+        for(int i = 0; i < floorButtonsLayout.getChildCount(); i++) {
+            View v = floorButtonsLayout.getChildAt(i);
+            if(v instanceof Button) {
+                Button btn = (Button) v;
+                if(btn.getText().equals(floor + "")) {
+                    btn.setTextColor(getResources().getColor(R.color.red));
+                }
+                else {
+                    btn.setTextColor(getResources().getColor(R.color.white));
+                }
+            }
+        }
     }
 
     private void moveToMapView() {
+        mapView.setHighlightNode(null);
         relativeLayout.addView(mapView);
         relativeLayout.addView(floorButtonsLayout);
         relativeLayout.removeView(searchResultsView);
         relativeLayout.addView(directionsButton);
+        relativeLayout.removeView(navigationLayout);
+        directionsButton.setOnClickListener((View view) -> {
+            moveToDirections();
+        });
+        path.clear();
         mapViewOn = true;
         bringHudToFront();
     }

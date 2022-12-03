@@ -7,6 +7,7 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.graphics.drawable.Drawable;
 import android.util.DisplayMetrics;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -67,7 +68,9 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     private Paint doorPaint;
     private Paint showCoordbgPaint;
     private Paint showCoordTextPaint;
+    private Paint highlightNodePaint;
     private MapNode showCoordNode;
+    private MapNode highlightNode;
 
     private ReentrantLock mutex;
 
@@ -84,6 +87,8 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     private static final float DOOR_LENGTH = 1.5f;
     private static final float NODE_CENTER_SCALE_FACTOR = 30f;
     private static final float SCALE_SPEED = 1.00005f;
+    private static final float LOC_PIN_WIDTH = 5f;
+    private static final float LOC_PIN_HEIGHT = 5f;
 
     private final float textSize;
 
@@ -92,6 +97,12 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     private ArrayList<MapNode> path;
     private int startIndex, endIndex;
     private boolean pathChanged;
+    private boolean nodeHighlighted;
+
+    private Context context;
+
+    private Drawable personPin;
+    private Drawable locationPin;
 
     public MapView(Context context, Map<MapNode, List<MapNode>> graph, Map<MapNode, List<Integer>> nodeToInfra, MapNode startNode, List<Infra> infraList) {
         super(context);
@@ -107,9 +118,13 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
         lastAngle = 0;
         pathChanged = false;
 
+        personPin = getResources().getDrawable(R.drawable.ic_baseline_person_pin_circle_24);
+        locationPin = getResources().getDrawable(R.drawable.ic_baseline_location_on_24);
+
         this.graph = graph;
         this.nodeToInfra = nodeToInfra;
         this.infraList = infraList;
+        this.context = context;
 
         nodePaint = new Paint();
         nodePaint.setColor(Color.BLUE);
@@ -148,11 +163,16 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
         showCoordTextPaint.setColor(Color.BLUE);
         showCoordTextPaint.setTextSize(textSize);
 
+        highlightNodePaint = new Paint(Paint.LINEAR_TEXT_FLAG | Paint.ANTI_ALIAS_FLAG);
+        highlightNodePaint.setColor(Color.RED);
+        highlightNodePaint.setTextSize(textSize);
+
         bgPaint = new Paint();
         bgPaint.setColor(Color.WHITE);
         bgPaint.setStyle(Paint.Style.FILL);
 
         showCoordNode = null;
+        highlightNode = null;
 
         mutex = new ReentrantLock();
     }
@@ -403,6 +423,44 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
             canvas.translate((float)-(showCoordNode.getPosition().getX() - 1 - ssize * SHOW_COORD_CHAR_WIDTH),
                     (float)-(showCoordNode.getPosition().getY()));
         }
+
+        if(highlightNode != null && highlightNode.getPosition().getZ() == startNode.getPosition().getZ()) {
+            canvas.drawCircle((float)highlightNode.getPosition().getX(), (float)highlightNode.getPosition().getY(), nodeRadius, highlightNodePaint);
+
+            canvas.scale(1, -1);
+            personPin.setBounds(
+                    (int)(highlightNode.getPosition().getX() - LOC_PIN_WIDTH /2),
+                    (int) -(highlightNode.getPosition().getY() + LOC_PIN_HEIGHT),
+                    (int) (highlightNode.getPosition().getX() + LOC_PIN_WIDTH /2),
+                    (int) -(highlightNode.getPosition().getY())
+            );
+            personPin.draw(canvas);
+            canvas.scale(1, -1);
+
+            if(!nodeHighlighted) {
+                nodeHighlighted = true;
+                mutex.lock();
+                float[] sc = {(float)highlightNode.getPosition().getX(), (float)highlightNode.getPosition().getY(), 1};
+                getScreenCoords(sc);
+                worldToScreen.postTranslate(-sc[0] + displayWidth/2, -sc[1] + displayHeight/2 + pxFromDp(this.context, 100));
+                mutex.unlock();
+            }
+        }
+
+        if(path != null && path.size() > 0) {
+            MapNode destinationNode = path.get(path.size()-1);
+            if(destinationNode.getPosition().getZ() == startNode.getPosition().getZ()) {
+                canvas.scale(1, -1);
+                locationPin.setBounds(
+                        (int)(destinationNode.getPosition().getX() - LOC_PIN_WIDTH /2),
+                        (int) -(destinationNode.getPosition().getY() + LOC_PIN_HEIGHT),
+                        (int) (destinationNode.getPosition().getX() + LOC_PIN_WIDTH /2),
+                        (int) -(destinationNode.getPosition().getY())
+                );
+                locationPin.draw(canvas);
+                canvas.scale(1, -1);
+            }
+        }
     }
 
     float[] values = new float[9];
@@ -520,6 +578,14 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     public void setShowCoordNode(MapNode showCoordNode) {
         if(showCoordNode != this.showCoordNode) {
             this.showCoordNode = showCoordNode;
+            invalidate();
+        }
+    }
+
+    public void setHighlightNode(MapNode highlightNode) {
+        if(highlightNode != this.highlightNode) {
+            this.highlightNode = highlightNode;
+            nodeHighlighted = false;
             invalidate();
         }
     }
