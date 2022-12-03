@@ -1,13 +1,11 @@
 package com.example.bitsmap;
 
 import android.app.Activity;
-import android.media.Image;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
@@ -56,8 +54,18 @@ public class MainActivity extends Activity {
 
     private SearchResultViewHolder searchResultViewHolder;
 
+    private Button directionsButton;
+
     private boolean mapViewOn;
     private boolean searchFocus;
+    private boolean lookingForDirections;
+    private boolean selectingSourceLocation;
+    private boolean selectingDestinationLocation;
+    private boolean pathFound;
+
+    public Infra startInfra;
+    public Infra destinationInfra;
+    private ArrayList<MapNode> path;
 
     // For floor changer nodes, make sure the other Delta corresponds to the actual node.
     // Each floorchanger node connects to only its directly upper and lower neighbours
@@ -75,6 +83,9 @@ public class MainActivity extends Activity {
         floorChangerMap = new HashMap<>();
         graph = new HashMap<>();
         floorSet = new HashSet<>();
+        path = new ArrayList<>();
+        startInfra = destinationInfra = null;
+        pathFound = true;
 
         try {
             Scanner sc = new Scanner(getAssets().open("nodes.txt"));
@@ -174,12 +185,6 @@ public class MainActivity extends Activity {
                     }
                 }
             }
-
-            MapNode n1 = nodeList.get(0);
-            MapNode n2 = nodeList.get(162);
-
-            System.out.println("PATH: ");
-            printPath(n1, n2, false);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -210,8 +215,11 @@ public class MainActivity extends Activity {
             if(hasFocus && mapViewOn) {
                 relativeLayout.removeView(mapView);
                 relativeLayout.removeView(floorButtonsLayout);
+                relativeLayout.removeView(directionsButton);
                 relativeLayout.addView(searchResultsView);
                 mapViewOn = false;
+
+                filterSearchResults("");
             }
         });
 
@@ -229,7 +237,128 @@ public class MainActivity extends Activity {
             }
         });
 
+        lookingForDirections = false;
+        directionsButton = findViewById(R.id.directionsButton);
+        directionsButton.setOnClickListener((View view) -> {
+            moveToDirections();
+        });
+    }
 
+    private void moveToDirections() {
+        lookingForDirections = true;
+        selectingSourceLocation = selectingDestinationLocation = false;
+        relativeLayout.removeAllViews();
+        relativeLayout.addView(mapView);
+
+        SearchView sourceSearchView = (SearchView) LayoutInflater.from(this).inflate(R.layout.source_search_bar, relativeLayout, false);
+        SearchView destinationSearchView = (SearchView)  LayoutInflater.from(this).inflate(R.layout.destination_search_bar, relativeLayout, false);
+        relativeLayout.addView(sourceSearchView, sourceSearchView.getLayoutParams());
+
+        if(startInfra != null) {
+            sourceSearchView.setQuery(startInfra.getName() + ", Floor: " + (int)startInfra.getPosition().getZ(), false);
+        }
+
+        if(destinationInfra != null) {
+            destinationSearchView.setQuery(destinationInfra.getName() + ", Floor: " + (int)destinationInfra.getPosition().getZ(), false);
+        }
+
+        ViewGroup.LayoutParams params = destinationSearchView.getLayoutParams();
+        RelativeLayout.LayoutParams destinationParams = new RelativeLayout.LayoutParams(params);
+
+        sourceSearchView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        sourceSearchView.layout(0, 0, sourceSearchView.getMeasuredWidth(), sourceSearchView.getMeasuredHeight());
+        destinationParams.setMargins((int)MapView.pxFromDp(this, 8),
+                8 + sourceSearchView.getHeight() + 24,
+                (int)MapView.pxFromDp(this, 8),
+                (int)MapView.pxFromDp(this, 8));
+        relativeLayout.addView(destinationSearchView, destinationParams);
+
+        sourceSearchView.setOnQueryTextFocusChangeListener ((View v, boolean hasFocus) -> {
+            searchFocus = hasFocus;
+
+            if(hasFocus && lookingForDirections) {
+                relativeLayout.removeView(mapView);
+                relativeLayout.removeView(floorButtonsLayout);
+                relativeLayout.removeView(destinationSearchView);
+
+                RelativeLayout.LayoutParams searchResultsViewParams = new RelativeLayout.LayoutParams(searchResultsView.getLayoutParams());
+                searchResultsViewParams.setMargins((int)MapView.pxFromDp(this, 8),
+                        8 + sourceSearchView.getHeight() + 24,
+                        (int)MapView.pxFromDp(this, 8),
+                        (int)MapView.pxFromDp(this, 8));
+                relativeLayout.addView(searchResultsView, searchResultsViewParams);
+                mapViewOn = false;
+                selectingSourceLocation = true;
+                selectingDestinationLocation = false;
+
+                filterSearchResults("");
+            }
+        });
+        sourceSearchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                return false;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                filterSearchResults(newText);
+                searchResultViewHolder.notifyDataSetChanged();
+                return false;
+            }
+        });
+
+        destinationSearchView.setOnQueryTextFocusChangeListener ((View v, boolean hasFocus) -> {
+            searchFocus = hasFocus;
+
+            if(hasFocus && lookingForDirections) {
+                relativeLayout.removeView(mapView);
+                relativeLayout.removeView(floorButtonsLayout);
+                relativeLayout.removeView(sourceSearchView);
+
+                destinationParams.topMargin = (int) MapView.pxFromDp(this, 8);
+                destinationSearchView.setLayoutParams(destinationParams);
+
+                RelativeLayout.LayoutParams searchResultsViewParams = new RelativeLayout.LayoutParams(searchResultsView.getLayoutParams());
+                searchResultsViewParams.setMargins((int)MapView.pxFromDp(this, 8),
+                        destinationSearchView.getHeight() + (int)MapView.pxFromDp(this, 16),
+                        (int)MapView.pxFromDp(this, 8),
+                        (int)MapView.pxFromDp(this, 8));
+                relativeLayout.addView(searchResultsView, searchResultsViewParams);
+                mapViewOn = false;
+                selectingSourceLocation = false;
+                selectingDestinationLocation = true;
+
+                filterSearchResults("");
+            }
+        });
+        destinationSearchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                return false;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                filterSearchResults(newText);
+                searchResultViewHolder.notifyDataSetChanged();
+                return false;
+            }
+        });
+
+        if(startInfra != null && destinationInfra != null) {
+            MapNode n1 = startInfra.getMapNode();
+            MapNode n2 = destinationInfra.getMapNode();
+            findPath(n1, n2, false);
+            mapView.setPath(path);
+
+            relativeLayout.addView(directionsButton, directionsButton.getLayoutParams());
+            directionsButton.setOnClickListener((view) -> {
+
+            });
+        }
+
+        relativeLayout.addView(floorButtonsLayout, floorButtonsLayout.getLayoutParams());
     }
 
     private void initializeFloorButtons() {
@@ -242,8 +371,21 @@ public class MainActivity extends Activity {
             floorButton.setText(String.valueOf(floor));
             floorButton.setOnClickListener((View view) -> {
                 int btnFloor = Integer.parseInt(((Button) view).getText().toString());
+                for(int i = 0; i < floorButtonsLayout.getChildCount(); i++) {
+                    View v = floorButtonsLayout.getChildAt(i);
+                    if(v instanceof Button) {
+                        if(v == view) {
+                            ((Button) v).setTextColor(getResources().getColor(R.color.red));
+                        }
+                        else {
+                            ((Button) v).setTextColor(getResources().getColor(R.color.white));
+                        }
+                    }
+                }
                 moveToFloor(btnFloor);
             });
+
+            if(floor == 0) floorButton.setTextColor(getResources().getColor(R.color.red));
 
             floorButtonsLayout.addView(floorButton, 0);
             floorButton.setTextSize((int)MapView.pxFromDp(this, 12));
@@ -276,9 +418,30 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if(!searchFocus && !mapViewOn) {
+        if(lookingForDirections) {
+            relativeLayout.removeAllViews();
+            if(!selectingSourceLocation && !selectingDestinationLocation) {
+                relativeLayout.addView(searchView);
+                lookingForDirections = false;
+                moveToMapView();
+            }
+            else {
+                moveToDirections();
+            }
+        }
+        else if(!searchFocus && !mapViewOn) {
             moveToMapView();
         }
+    }
+
+    public void setStartInfra(Infra startInfra) {
+        this.startInfra = startInfra;
+        moveToDirections();
+    }
+
+    public void setDestinationInfra(Infra destinationInfra) {
+        this.destinationInfra = destinationInfra;
+        moveToDirections();
     }
 
     public void focusLocation(Vec3D worldCoords) {
@@ -312,6 +475,7 @@ public class MainActivity extends Activity {
         relativeLayout.addView(mapView);
         relativeLayout.addView(floorButtonsLayout);
         relativeLayout.removeView(searchResultsView);
+        relativeLayout.addView(directionsButton);
         mapViewOn = true;
         bringHudToFront();
     }
@@ -326,14 +490,12 @@ public class MainActivity extends Activity {
                 }
             }
         }
-
     }
 
     private void bringHudToFront() {
         relativeLayout.bringChildToFront(searchView);
         relativeLayout.bringChildToFront(floorButtonsLayout);
     }
-
 
     private class HeapNode implements Comparable<HeapNode> {
         double dist;
@@ -351,14 +513,15 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void printSolution(int[] parents, int id) {
+    private void setPath(int[] parents, int id) {
         if(id == -1) return;
 
-        printSolution(parents, parents[id]);
+        setPath(parents, parents[id]);
+        path.add(nodeMap.get(nodeList.get(id).getPosition()));
         System.out.println("Id: " + id + "\t" + nodeList.get(id).getPosition());
     }
 
-    private void printPath(MapNode n1, MapNode n2, boolean onWheelchair) {
+    private void findPath(MapNode n1, MapNode n2, boolean onWheelchair) {
         double[] dist = new double[nodeList.size()];
         PriorityQueue<HeapNode> pq = new PriorityQueue<>();
         pq.add(new HeapNode(0, n1));
@@ -378,7 +541,7 @@ public class MainActivity extends Activity {
             HeapNode hn = pq.poll();
             int u = hn.node.getId();
 
-//            System.out.println("Checking node: " + hn.node.getId() + "\t" + hn.node.getPosition());
+//            System.out.println("Checking node: " + hn.node.getId() + "\t" + hn.node.getPosition() + "\t" + hn.dist);
 
             List<MapNode> nodes = graph.get(hn.node);
             for(MapNode node : nodes) {
@@ -387,7 +550,7 @@ public class MainActivity extends Activity {
 
                 if(!transitionValid(hn.node, node, onWheelchair)) continue;
 
-                double weight = hn.node.getPosition().distSq(node.getPosition());
+                double weight = hn.node.getPosition().dist(node.getPosition());
                 int v = node.getId();
 //                System.out.println(dist[u] + weight);
 //                System.out.println(dist[v]);
@@ -402,7 +565,8 @@ public class MainActivity extends Activity {
             }
         }
 
-        printSolution(parents, n2.getId());
+        path.clear();
+        setPath(parents, n2.getId());
 
     }
 
@@ -625,4 +789,8 @@ public class MainActivity extends Activity {
             }
         }
     }
+
+    public boolean isSelectingSourceLocation() { return selectingSourceLocation; }
+
+    public boolean isSelectingDestinationLocation() { return selectingDestinationLocation; }
 }

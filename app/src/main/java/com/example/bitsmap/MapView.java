@@ -12,6 +12,7 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -70,9 +71,9 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
 
     private ReentrantLock mutex;
 
-    private static final float nodeRadius = 0.2f;
+    private static final float nodeRadius = 0.3f;
     private static final float pathWidth = 3f;
-    private static final float pathThickness = 0.2f;
+    private static final float pathThickness = 0.35f;
     private static final float MAX_DRAG_SPEED = 500;
     private static final float TEXT_DP = 0.5f;
     private static final float SHOW_COORD_DIST = 1;
@@ -88,6 +89,10 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
 
     private boolean[] visited;
 
+    private ArrayList<MapNode> path;
+    private int startIndex, endIndex;
+    private boolean pathChanged;
+
     public MapView(Context context, Map<MapNode, List<MapNode>> graph, Map<MapNode, List<Integer>> nodeToInfra, MapNode startNode, List<Infra> infraList) {
         super(context);
         scaleGestureDetector = new ScaleGestureDetector(getContext(), new ScaleListener());
@@ -100,6 +105,7 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
         worldToScreen.postScale(scaleFactor, -scaleFactor);
         worldToScreen.postTranslate(displayWidth/2, 3*displayHeight/4);
         lastAngle = 0;
+        pathChanged = false;
 
         this.graph = graph;
         this.nodeToInfra = nodeToInfra;
@@ -304,6 +310,40 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
         }
     }
 
+    public void setPath(ArrayList<MapNode> path) {
+        this.path = path;
+        for(MapNode n : path) {
+            System.out.println(n.getId() + ", " + n.getPosition());
+        }
+        pathChanged = true;
+        invalidate();
+    }
+
+    private void drawPath(Canvas canvas) {
+        int floor = (int)startNode.getPosition().getZ();
+        MapNode n1 = null;
+        int i = 0;
+        do {
+            if(i >= path.size()) break;
+            n1 = path.get(i);
+            i++;
+        } while((int)n1.getPosition().getZ() != floor);
+
+        startIndex = i-1;
+
+        while(i < path.size()) {
+            MapNode n2 = path.get(i);
+            if((int)n2.getPosition().getZ() != floor) break;
+            canvas.drawLine((float)n1.getPosition().getX(), (float)n1.getPosition().getY(),
+                    (float)n2.getPosition().getX(), (float)n2.getPosition().getY(), linePaint);
+
+            n1 = n2;
+            i++;
+        }
+
+        endIndex = i-1;
+    }
+
     private void drawLines(Canvas canvas, boolean[] visited, MapNode node) {
         if(visited[node.getId()]) return;
 
@@ -327,6 +367,15 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
 
 //        Arrays.fill(visited, false);
 //        drawLines(canvas, visited, startNode);
+
+        if(path != null && path.size() >= 2) {
+            drawPath(canvas);
+            if(pathChanged) {
+                centerWorldCoords(path.get(startIndex).getPosition().add(path.get(endIndex).getPosition()).divide(2));
+                zoomOutTillBothPinsVisible();
+                pathChanged = false;
+            }
+        }
 
         for(MapNode node : graph.keySet()) {
             if(node.getPosition().getZ() != startNode.getPosition().getZ()) continue;
@@ -357,6 +406,26 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     }
 
     float[] values = new float[9];
+
+    private boolean isWorldCoordinateOnScreen(Vec3D v, int padding) {
+        if(v.getZ() != startNode.getPosition().getZ()) return false;
+
+        float[] sc = {(float)v.getX(), (float)v.getY(), 1};
+        getScreenCoords(sc);
+
+        return sc[0] >= padding && sc[0] <= displayWidth-padding && sc[1] >= padding && sc[1] <= displayHeight-padding;
+    }
+
+    private void zoomOutTillBothPinsVisible() {
+        MapNode n1 = path.get(startIndex);
+        MapNode n2 = path.get(endIndex);
+
+        do {
+            mutex.lock();
+            worldToScreen.postScale(1/SCALE_SPEED, 1/SCALE_SPEED, displayWidth/2, displayHeight/2);
+            mutex.unlock();
+        } while(!isWorldCoordinateOnScreen(n1.getPosition(), 400) || !isWorldCoordinateOnScreen(n2.getPosition(), 400));
+    }
 
     @Override
     public void OnRotation(RotationGestureDetector rotationDetector) {
