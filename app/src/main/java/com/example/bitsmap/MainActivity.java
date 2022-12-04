@@ -51,6 +51,7 @@ public class MainActivity extends Activity {
 
     private SearchView searchView;
     private RecyclerView searchResultsView;
+    private Infra searchViewInfra;
 
     private LinearLayout floorButtonsLayout;
     private RelativeLayout navigationLayout;
@@ -100,7 +101,7 @@ public class MainActivity extends Activity {
         graph = new HashMap<>();
         floorSet = new HashSet<>();
         path = new ArrayList<>();
-        startInfra = destinationInfra = null;
+        searchViewInfra = startInfra = destinationInfra = null;
         usingWheelChair = false;
 
         try {
@@ -239,7 +240,7 @@ public class MainActivity extends Activity {
                 relativeLayout.addView(searchResultsView);
                 mapViewOn = false;
 
-                filterSearchResults("");
+                filterSearchResults(searchView.getQuery().toString());
             }
         });
 
@@ -267,6 +268,8 @@ public class MainActivity extends Activity {
 
         bringHudToFront();
     }
+
+    public boolean isMapViewOn() { return isMapViewOn(); }
 
     private void moveToDirections() {
         mapView.setHighlightNode(null);
@@ -321,7 +324,7 @@ public class MainActivity extends Activity {
                 selectingSourceLocation = true;
                 selectingDestinationLocation = false;
 
-                filterSearchResults("");
+                filterSearchResults(sourceSearchView.getQuery().toString());
             }
         });
         sourceSearchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
@@ -360,7 +363,7 @@ public class MainActivity extends Activity {
                 selectingSourceLocation = false;
                 selectingDestinationLocation = true;
 
-                filterSearchResults("");
+                filterSearchResults(destinationSearchView.getQuery().toString());
             }
         });
         destinationSearchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
@@ -379,6 +382,7 @@ public class MainActivity extends Activity {
 
         if(startInfra != null && destinationInfra != null) {
             updatePath();
+            mapView.setShowCoordNode(null);
             relativeLayout.addView(directionsLayout, directionsLayout.getLayoutParams());
             directionsButton.setOnClickListener((view) -> {
                 relativeLayout.removeView(sourceSearchLayout);
@@ -728,6 +732,8 @@ public class MainActivity extends Activity {
         }
     }
 
+    public boolean isLookingForDirections() { return lookingForDirections; }
+
     public void setStartInfra(Infra startInfra) {
         this.startInfra = startInfra;
         moveToDirections();
@@ -753,8 +759,9 @@ public class MainActivity extends Activity {
         mapView.setShowCoordNode(node);
     }
 
-    public void focusInfra(Infra infra) {
+    public void searchResult(Infra infra) {
         searchView.setQuery(infra.getName() + ", Floor: " + (int)infra.getPosition().getZ(), false);
+        destinationInfra = searchViewInfra = infra;
         focusNode(infra.getMapNode());
     }
 
@@ -804,7 +811,7 @@ public class MainActivity extends Activity {
 
         if(!filterText.isEmpty()) {
             for (Infra infra : infraList) {
-                if (infra.getName().toLowerCase(Locale.ROOT).contains(filterText.toLowerCase(Locale.ROOT))) {
+                if ((infra.getName()+", Floor: " + (int)infra.getPosition().getZ()).toLowerCase(Locale.ROOT).contains(filterText.toLowerCase(Locale.ROOT))) {
                     searchResults.add(new SearchResult(infra, infra.getMapNode()));
                 }
             }

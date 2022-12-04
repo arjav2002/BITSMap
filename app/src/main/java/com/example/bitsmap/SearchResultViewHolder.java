@@ -1,6 +1,5 @@
 package com.example.bitsmap;
 
-import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -36,7 +35,7 @@ public class SearchResultViewHolder extends RecyclerView.Adapter<RecyclerView.Vi
         SearchResult searchResult = searchResults.get(position);
         MapNode node = searchResult.getMapNode();
 
-        searchResultHolder.resultButton.setText(searchResult.getHighlightedInfra().getName() + ", Floor: " + (int)node.getPosition().getZ() + ", Node ID: " + node.getId());
+        searchResultHolder.resultButton.setText(searchResult.getHighlightedInfra().getName() + ", Floor: " + (int)node.getPosition().getZ());
         searchResultHolder.resultButton.setOnClickListener((View view) -> {
             if(mainActivity.isSelectingSourceLocation()) {
                 mainActivity.setStartInfra(searchResult.getHighlightedInfra());
@@ -45,7 +44,7 @@ public class SearchResultViewHolder extends RecyclerView.Adapter<RecyclerView.Vi
                 mainActivity.setDestinationInfra(searchResult.getHighlightedInfra());
             }
             else {
-                mainActivity.focusInfra(searchResult.getHighlightedInfra());
+                mainActivity.searchResult(searchResult.getHighlightedInfra());
             }
         });
 

@@ -91,8 +91,8 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     private static final float DOOR_LENGTH = 1.5f;
     private static final float NODE_CENTER_SCALE_FACTOR = 30f;
     private static final float SCALE_SPEED = 1.00005f;
-    private static final float LOC_PIN_WIDTH = 5f;
-    private static final float LOC_PIN_HEIGHT = 5f;
+    private static final float LOC_PIN_WIDTH = 160f;
+    private static final float LOC_PIN_HEIGHT = 160f;
 
     private final float textSize;
 
@@ -102,6 +102,7 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     private int startIndex, endIndex;
     private boolean pathChanged;
     private boolean nodeHighlighted;
+    private boolean isShowCoordNullable;
 
     private Context context;
 
@@ -110,8 +111,10 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     private Drawable startPin;
     private Drawable middlePin;
 
-    public MapView(Context context, Map<MapNode, List<MapNode>> graph, Map<MapNode, List<Integer>> nodeToInfra, MapNode startNode, List<Infra> infraList) {
-        super(context);
+    private MainActivity mainActivity;
+
+    public MapView(MainActivity mainActivity, Map<MapNode, List<MapNode>> graph, Map<MapNode, List<Integer>> nodeToInfra, MapNode startNode, List<Infra> infraList) {
+        super(mainActivity);
         scaleGestureDetector = new ScaleGestureDetector(getContext(), new ScaleListener());
         mRotationDetector = new RotationGestureDetector(this);
         displayMetrics = new DisplayMetrics();
@@ -132,7 +135,7 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
         this.graph = graph;
         this.nodeToInfra = nodeToInfra;
         this.infraList = infraList;
-        this.context = context;
+        this.context = mainActivity;
 
         nodePaint = new Paint();
         nodePaint.setColor(Color.BLUE);
@@ -187,6 +190,7 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
         highlightNode = null;
 
         mutex = new ReentrantLock();
+        isShowCoordNullable = false;
     }
 
     // below method is use to generate px from DP.
@@ -198,9 +202,10 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     public boolean onTouchEvent(MotionEvent event) {
         switch (event.getAction() & MotionEvent.ACTION_MASK) {
             case MotionEvent.ACTION_DOWN:
-                mode = DRAG;
                 startFingerX = event.getX();
                 startFingerY = event.getY();
+
+                isShowCoordNullable = true;
 
                 float[] sc = {startFingerX, startFingerY, 1};
                 getWorldCoord(sc);
@@ -218,14 +223,15 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
 
                 if (minDist < SHOW_COORD_DIST) {
                     setShowCoordNode(x);
-                }
-                else {
-                    showCoordNode = null;
+                    isShowCoordNullable = false;
                 }
 
                 break;
-
+            case MotionEvent.ACTION_POINTER_DOWN:
+                isShowCoordNullable = false;
+                break;
             case MotionEvent.ACTION_MOVE:
+                isShowCoordNullable = false;
                 translateX = event.getX() - startFingerX;
                 translateY = event.getY() - startFingerY;
                 startFingerX = event.getX();
@@ -235,6 +241,12 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
                     worldToScreen.postTranslate(translateX, translateY);
                 }
                 invalidate();
+                break;
+            case MotionEvent.ACTION_UP:
+                if(isShowCoordNullable) {
+                    showCoordNode = null;
+                    invalidate();
+                }
                 break;
         }
 
@@ -427,25 +439,7 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
         }
 
         if(showCoordNode != null) {
-            String toDrawString = ((int)showCoordNode.getPosition().getX() + ", " + (int)showCoordNode.getPosition().getY() + " (" + showCoordNode.getId() + ")");
-            int ssize = toDrawString.length();
-
-            canvas.drawRect(new RectF((float)(showCoordNode.getPosition().getX() - 1 - ssize * SHOW_COORD_CHAR_WIDTH),
-                                      (float)(showCoordNode.getPosition().getY() + SHOW_COORD_HEIGHT/2),
-                                      (float)(showCoordNode.getPosition().getX() - 1),
-                                      (float)(showCoordNode.getPosition().getY() - SHOW_COORD_HEIGHT/2)),
-                    showCoordbgPaint);
-
-            canvas.translate((float)(showCoordNode.getPosition().getX() - 1 - ssize * SHOW_COORD_CHAR_WIDTH),
-                    (float)(showCoordNode.getPosition().getY()));
-            canvas.scale(1, -1);
-            canvas.drawText(toDrawString,
-                    0,
-                    0,
-                    showCoordTextPaint);
-            canvas.scale(1, -1);
-            canvas.translate((float)-(showCoordNode.getPosition().getX() - 1 - ssize * SHOW_COORD_CHAR_WIDTH),
-                    (float)-(showCoordNode.getPosition().getY()));
+            drawPinAtNode(locationPin, showCoordNode, canvas);
         }
 
         if(path != null && path.size() >= 2) {
@@ -491,10 +485,26 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     }
 
     private void drawPin(Drawable drawable, double left, double top, double right, double bottom, Canvas canvas) {
-        canvas.scale(1, -1);
-        drawable.setBounds((int)left, (int) top, (int) right, (int) bottom);
+        mutex.lock();
+        worldToScreen.getValues(values);
+
+        float cx = (float) ((left+right)/2);
+        int cy = (int) ((top+bottom)/2);
+        float width = (float) (right-left);
+        float height = (float) (bottom-top);
+
+        mutex.lock();
+        worldToScreen.getValues(values);
+
+        cx *= values[0];
+        bottom *= -values[4];
+
+        canvas.scale(1/values[0], 1/values[4]);
+        drawable.setBounds((int) ((int)cx-width/2), (int) ((int)bottom-height), (int) ((int)cx+width/2), (int) bottom);
         drawable.draw(canvas);
-        canvas.scale(1, -1);
+        canvas.scale(values[0], values[4]);
+
+        mutex.unlock();
     }
 
     float[] values = new float[9];
@@ -612,9 +622,12 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     public void setShowCoordNode(MapNode showCoordNode) {
         if(showCoordNode != this.showCoordNode) {
             this.showCoordNode = showCoordNode;
+
             invalidate();
         }
     }
+
+    public MapNode getShowCoordNode() { return showCoordNode; }
 
     public void setMiddleNode(MapNode middleNode) {
         this.middleNode = middleNode;
