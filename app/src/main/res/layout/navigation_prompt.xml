@@ -8,27 +8,35 @@
         android:text="@string/prev"
         android:layout_width="wrap_content"
         android:layout_alignParentStart="true"
-        android:background="@color/white"
+        android:layout_marginStart="20dp"
+        android:layout_marginTop="40dp"
+        android:background="@color/green"
         android:textColor="@color/black"
-        android:layout_height="200dp"/>
+        android:layout_height="wrap_content"/>
 
     <TextView
         android:id="@+id/promptView"
         android:layout_width="0dp"
-        android:layout_height="200dp"
-        android:layout_marginStart="0dp"
-        android:layout_marginEnd="0dp"
+        android:layout_height="100dp"
+        android:layout_marginTop="20dp"
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="10dp"
         android:layout_toStartOf="@+id/nextBtn"
         android:layout_toEndOf="@+id/prevBtn"
         android:background="@color/black"
-        android:textColor="@color/white" />
+        android:textColor="@color/white"
+        android:textSize="20sp"
+        android:orientation="vertical"
+        android:gravity="center"/>
 
     <Button
         android:id="@+id/nextBtn"
         android:layout_width="wrap_content"
-        android:layout_height="200dp"
+        android:layout_height="wrap_content"
         android:layout_alignParentEnd="true"
-        android:background="@color/white"
+        android:layout_marginEnd="20dp"
+        android:layout_marginTop="40dp"
+        android:background="@color/green"
         android:textColor="@color/black"
         android:text="@string/next" />
 </RelativeLayout>

@@ -1,19 +1,17 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:left="30dp" android:right="30dp" android:top="30dp" android:bottom="30dp">
-        <shape android:shape="rectangle">
-            <size
-                android:width="10dp"
-                android:height="10dp" />
-            <solid
-                android:color="#FFFFFF" />
+    <item android:left="0dp" android:right="0dp" android:top="0dp" android:bottom="0dp">
+        <shape android:shape="oval">
+            <stroke android:color="#cccccc"
+                android:width="10dp"/>
         </shape>
     </item>
     <item>
         <vector android:height="24dp" android:tint="#000000"
             android:viewportHeight="24" android:viewportWidth="24"
             android:width="24dp">
-            <path android:fillColor="@android:color/white" android:pathData="M21.41,10.59l-7.99,-8c-0.78,-0.78 -2.05,-0.78 -2.83,0l-8.01,8c-0.78,0.78 -0.78,2.05 0,2.83l8.01,8c0.78,0.78 2.05,0.78 2.83,0l7.99,-8C22.2,12.63 22.2,11.37 21.41,10.59zM13.5,14.5V12H10v3H8v-4c0,-0.55 0.45,-1 1,-1h4.5V7.5L17,11L13.5,14.5z"/>
-
+            <path
+                android:fillColor="@android:color/white"
+                android:pathData="M14,10L9,10c-0.6,0 -1,0.4 -1,1v4h2v-3h4v2.5l3.5,-3.5L14,7.5L14,10zM12,1C5.9,1 1,5.9 1,12s4.9,11 11,11 11,-4.9 11,-11S18.1,1 12,1zM19.73,12.58l-7.19,7.22c-0.35,0.27 -0.79,0.27 -1.15,0L4.2,12.58c-0.27,-0.36 -0.27,-0.8 0,-1.16l7.19,-7.22c0.35,-0.27 0.79,-0.27 1.15,0l7.19,7.22c0.36,0.27 0.36,0.8 0,1.16z"/>
         </vector>
     </item>
 </layer-list>

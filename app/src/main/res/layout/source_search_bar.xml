@@ -1,14 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.appcompat.widget.SearchView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/sourceSearchBar"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginStart="8dp"
-    android:layout_marginTop="8dp"
-    android:layout_marginEnd="8dp"
-    android:layout_marginBottom="8dp"
-    android:background="@drawable/search_view_rounded_corners"
-    android:backgroundTint="@color/black"
-    app:iconifiedByDefault="false"
-    app:queryHint="Search Start Location" />
+    android:orientation="horizontal"
+    android:id="@+id/sourceSearchLayout">
+
+    <androidx.appcompat.widget.SearchView
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:id="@+id/sourceSearchBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="0dp"
+        android:background="@drawable/search_view_rounded_corners"
+        android:backgroundTint="@color/black"
+        android:layout_alignParentStart="true"
+        android:layout_toStartOf="@id/sourcePin"
+        app:iconifiedByDefault="false"
+        app:queryHint="Search Start Location" />
+
+    <ImageView
+        android:id="@+id/sourcePin"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:background="@drawable/ic_baseline_location_start_24"
+        android:scaleType="centerInside"
+        android:layout_marginTop="8dp"
+        android:layout_marginStart="5dp"
+        android:layout_marginEnd="8dp"
+        android:layout_alignParentEnd="true"/>
+</RelativeLayout>

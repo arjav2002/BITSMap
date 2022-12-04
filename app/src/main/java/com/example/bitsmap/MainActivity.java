@@ -2,11 +2,13 @@ package com.example.bitsmap;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.text.Spannable;
+import android.text.SpannableString;
+import android.text.style.ForegroundColorSpan;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
@@ -56,20 +58,30 @@ public class MainActivity extends Activity {
 
     private SearchResultViewHolder searchResultViewHolder;
 
+    private LinearLayout directionsLayout;
     private Button directionsButton;
+    private TextView navigationTextView;
+
+    private LinearLayout transportLayout;
+    private Button walkButton;
+    private Button wheelchairButton;
 
     private boolean mapViewOn;
     private boolean searchFocus;
     private boolean lookingForDirections;
     private boolean selectingSourceLocation;
     private boolean selectingDestinationLocation;
-    private boolean pathFound;
+    private boolean usingWheelChair;
 
     public Infra startInfra;
     public Infra destinationInfra;
     private ArrayList<MapNode> path;
 
     private int currentPathIndex;
+
+    private int currentFloor;
+    private int maxFloor;
+    private int minFloor;
 
     // For floor changer nodes, make sure the other Delta corresponds to the actual node.
     // Each floorchanger node connects to only its directly upper and lower neighbours
@@ -89,7 +101,7 @@ public class MainActivity extends Activity {
         floorSet = new HashSet<>();
         path = new ArrayList<>();
         startInfra = destinationInfra = null;
-        pathFound = true;
+        usingWheelChair = false;
 
         try {
             Scanner sc = new Scanner(getAssets().open("nodes.txt"));
@@ -193,6 +205,11 @@ public class MainActivity extends Activity {
             e.printStackTrace();
         }
 
+        Integer[] floors = new Integer[floorSet.size()];
+        floorSet.toArray(floors);
+        minFloor = floors[0];
+        maxFloor = floors[floors.length-1];
+
         // initializing our view.
         relativeLayout = findViewById(R.id.idRLView);
         mapView = new MapView(this, graph, nodeToInfra, nodeList.get(0), infraList);
@@ -202,7 +219,6 @@ public class MainActivity extends Activity {
         searchView = findViewById(R.id.searchView);
         searchResultsView = findViewById(R.id.searchResultsRecycler);
         relativeLayout.removeView(searchResultsView);
-        bringHudToFront();
 
         searchView.clearFocus();
         searchFocus = false;
@@ -219,7 +235,7 @@ public class MainActivity extends Activity {
             if(hasFocus && mapViewOn) {
                 relativeLayout.removeView(mapView);
                 relativeLayout.removeView(floorButtonsLayout);
-                relativeLayout.removeView(directionsButton);
+                relativeLayout.removeView(directionsLayout);
                 relativeLayout.addView(searchResultsView);
                 mapViewOn = false;
 
@@ -246,18 +262,26 @@ public class MainActivity extends Activity {
         directionsButton.setOnClickListener((View view) -> {
             moveToDirections();
         });
+
+        directionsLayout = findViewById(R.id.directionsLayout);
+
+        bringHudToFront();
     }
 
     private void moveToDirections() {
         mapView.setHighlightNode(null);
+        mapView.setMiddleNode(null);
         lookingForDirections = true;
         selectingSourceLocation = selectingDestinationLocation = false;
         relativeLayout.removeAllViews();
         relativeLayout.addView(mapView);
 
-        SearchView sourceSearchView = (SearchView) LayoutInflater.from(this).inflate(R.layout.source_search_bar, relativeLayout, false);
-        SearchView destinationSearchView = (SearchView)  LayoutInflater.from(this).inflate(R.layout.destination_search_bar, relativeLayout, false);
-        relativeLayout.addView(sourceSearchView, sourceSearchView.getLayoutParams());
+        RelativeLayout sourceSearchLayout = (RelativeLayout) LayoutInflater.from(this).inflate(R.layout.source_search_bar, relativeLayout, false);
+        RelativeLayout destinationSearchLayout = (RelativeLayout) LayoutInflater.from(this).inflate(R.layout.destination_search_bar, relativeLayout, false);
+
+        SearchView sourceSearchView = (SearchView) sourceSearchLayout.findViewById(R.id.sourceSearchBar);
+        SearchView destinationSearchView = (SearchView) destinationSearchLayout.findViewById(R.id.destinationSearchBar);
+        relativeLayout.addView(sourceSearchLayout, sourceSearchLayout.getLayoutParams());
 
         if(startInfra != null) {
             sourceSearchView.setQuery(startInfra.getName() + ", Floor: " + (int)startInfra.getPosition().getZ(), false);
@@ -267,16 +291,16 @@ public class MainActivity extends Activity {
             destinationSearchView.setQuery(destinationInfra.getName() + ", Floor: " + (int)destinationInfra.getPosition().getZ(), false);
         }
 
-        ViewGroup.LayoutParams params = destinationSearchView.getLayoutParams();
+        ViewGroup.LayoutParams params = destinationSearchLayout.getLayoutParams();
         RelativeLayout.LayoutParams destinationParams = new RelativeLayout.LayoutParams(params);
 
-        sourceSearchView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
-        sourceSearchView.layout(0, 0, sourceSearchView.getMeasuredWidth(), sourceSearchView.getMeasuredHeight());
-        destinationParams.setMargins((int)MapView.pxFromDp(this, 8),
-                8 + sourceSearchView.getHeight() + 24,
-                (int)MapView.pxFromDp(this, 8),
-                (int)MapView.pxFromDp(this, 8));
-        relativeLayout.addView(destinationSearchView, destinationParams);
+        sourceSearchLayout.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        sourceSearchLayout.layout(0, 0, sourceSearchLayout.getMeasuredWidth(), sourceSearchLayout.getMeasuredHeight());
+        destinationParams.setMargins(0,
+                (int) (sourceSearchLayout.getHeight()),
+                0,
+                0);
+        relativeLayout.addView(destinationSearchLayout, destinationParams);
 
         sourceSearchView.setOnQueryTextFocusChangeListener ((View v, boolean hasFocus) -> {
             searchFocus = hasFocus;
@@ -284,11 +308,12 @@ public class MainActivity extends Activity {
             if(hasFocus && lookingForDirections) {
                 relativeLayout.removeView(mapView);
                 relativeLayout.removeView(floorButtonsLayout);
-                relativeLayout.removeView(destinationSearchView);
+                relativeLayout.removeView(destinationSearchLayout);
+                relativeLayout.removeView(transportLayout);
 
                 RelativeLayout.LayoutParams searchResultsViewParams = new RelativeLayout.LayoutParams(searchResultsView.getLayoutParams());
                 searchResultsViewParams.setMargins((int)MapView.pxFromDp(this, 8),
-                        8 + sourceSearchView.getHeight() + 24,
+                        (int) (sourceSearchLayout.getHeight() + MapView.pxFromDp(this,16)),
                         (int)MapView.pxFromDp(this, 8),
                         (int)MapView.pxFromDp(this, 8));
                 relativeLayout.addView(searchResultsView, searchResultsViewParams);
@@ -319,14 +344,15 @@ public class MainActivity extends Activity {
             if(hasFocus && lookingForDirections) {
                 relativeLayout.removeView(mapView);
                 relativeLayout.removeView(floorButtonsLayout);
-                relativeLayout.removeView(sourceSearchView);
+                relativeLayout.removeView(sourceSearchLayout);
+                relativeLayout.removeView(transportLayout);
 
                 destinationParams.topMargin = (int) MapView.pxFromDp(this, 8);
-                destinationSearchView.setLayoutParams(destinationParams);
+                destinationSearchLayout.setLayoutParams(destinationParams);
 
                 RelativeLayout.LayoutParams searchResultsViewParams = new RelativeLayout.LayoutParams(searchResultsView.getLayoutParams());
                 searchResultsViewParams.setMargins((int)MapView.pxFromDp(this, 8),
-                        destinationSearchView.getHeight() + (int)MapView.pxFromDp(this, 16),
+                        destinationSearchLayout.getHeight() + (int)MapView.pxFromDp(this, 16),
                         (int)MapView.pxFromDp(this, 8),
                         (int)MapView.pxFromDp(this, 8));
                 relativeLayout.addView(searchResultsView, searchResultsViewParams);
@@ -352,37 +378,32 @@ public class MainActivity extends Activity {
         });
 
         if(startInfra != null && destinationInfra != null) {
-            MapNode n1 = startInfra.getMapNode();
-            MapNode n2 = destinationInfra.getMapNode();
-            findPath(n1, n2, false);
-            mapView.setPath(path);
-
-            relativeLayout.addView(directionsButton, directionsButton.getLayoutParams());
+            updatePath();
+            relativeLayout.addView(directionsLayout, directionsLayout.getLayoutParams());
             directionsButton.setOnClickListener((view) -> {
-                relativeLayout.removeView(sourceSearchView);
-                relativeLayout.removeView(destinationSearchView);
-                relativeLayout.removeView(directionsButton);
+                relativeLayout.removeView(sourceSearchLayout);
+                relativeLayout.removeView(destinationSearchLayout);
+                relativeLayout.removeView(directionsLayout);
+                relativeLayout.removeView(transportLayout);
 
                 navigationLayout = (RelativeLayout) LayoutInflater.from(this).inflate(R.layout.navigation_prompt, relativeLayout);
 
-                TextView textView = navigationLayout.findViewById(R.id.promptView);
-                currentPathIndex = 0;
+                navigationTextView = navigationLayout.findViewById(R.id.promptView);
+                currentPathIndex = 1;
 
                 if(path.size() >= 2) {
                     currentPathIndex++;
-                    textView.setText("Goto " + path.get(currentPathIndex).getPosition());
+                    setCurrentAction(currentPathIndex-1);
                     mapView.setHighlightNode(path.get(currentPathIndex-1));
                     navigationLayout.findViewById(R.id.prevBtn).setBackgroundColor(getResources().getColor(R.color.search_background_gray));
                 }
 
-
                 relativeLayout.findViewById(R.id.nextBtn).setOnClickListener((v) -> {
                     if(currentPathIndex <= path.size()-2) {
                         currentPathIndex++;
-                        textView.setText("Goto " + path.get(currentPathIndex).getPosition());
+                        setCurrentAction(currentPathIndex-1);
                         mapView.setHighlightNode(path.get(currentPathIndex-1));
-
-                        System.out.println(currentPathIndex);
+                        moveToFloor((int)path.get(currentPathIndex-1).getPosition().getZ());
                     }
 
                     if(currentPathIndex > path.size()-2) {
@@ -390,15 +411,16 @@ public class MainActivity extends Activity {
                     }
 
                     if(currentPathIndex >= 2) {
-                        navigationLayout.findViewById(R.id.prevBtn).setBackgroundColor(getResources().getColor(R.color.white));
+                        navigationLayout.findViewById(R.id.prevBtn).setBackgroundColor(getResources().getColor(R.color.green));
                     }
                 });
 
                 relativeLayout.findViewById(R.id.prevBtn).setOnClickListener((v) -> {
                     if(currentPathIndex >= 2) {
                         currentPathIndex--;
-                        textView.setText("Goto " + path.get(currentPathIndex).getPosition());
+                        setCurrentAction(currentPathIndex-1);
                         mapView.setHighlightNode(path.get(currentPathIndex-1));
+                        moveToFloor((int)path.get(currentPathIndex-1).getPosition().getZ());
                     }
 
                     if(currentPathIndex < 2) {
@@ -406,7 +428,7 @@ public class MainActivity extends Activity {
                     }
 
                     if(currentPathIndex <= path.size()-2) {
-                        navigationLayout.findViewById(R.id.nextBtn).setBackgroundColor(getResources().getColor(R.color.white));
+                        navigationLayout.findViewById(R.id.nextBtn).setBackgroundColor(getResources().getColor(R.color.green));
                     }
                 });
 
@@ -415,6 +437,215 @@ public class MainActivity extends Activity {
         }
 
         relativeLayout.addView(floorButtonsLayout, floorButtonsLayout.getLayoutParams());
+
+        transportLayout = (LinearLayout) LayoutInflater.from(this).inflate(R.layout.transport_selection, relativeLayout, false);
+        RelativeLayout.LayoutParams transportParams = new RelativeLayout.LayoutParams(transportLayout.getLayoutParams());
+        transportParams.addRule(RelativeLayout.BELOW, R.id.destinationSearchLayout);
+        transportParams.setMargins(150, 0, 150, 0);
+        relativeLayout.addView(transportLayout, transportParams);
+        walkButton = transportLayout.findViewById(R.id.walkButton);
+        wheelchairButton = transportLayout.findViewById(R.id.wheelChairButton);
+        walkButton.setOnClickListener((v) -> {
+            usingWheelChair = false;
+            updateTransportButtons();
+            updatePath();
+        });
+        wheelchairButton.setOnClickListener((v) -> {
+            usingWheelChair = true;
+            updateTransportButtons();
+            updatePath();
+        });
+        updateTransportButtons();
+    }
+
+    private void setCurrentAction(int i) {
+        String Goto="Goto ";
+        if(i == path.size()-1) {
+            setTextAndHighlightWithColor(Goto + destinationInfra.getName(), getResources().getColor(R.color.finish_red), Goto.length(), Goto.length()+destinationInfra.getName().length());
+            mapView.setMiddleNode(null);
+            return;
+        }
+
+        MapNode n1 = path.get(i);
+        i++;
+        MapNode n2 = path.get(i);
+
+        String turnString = "";
+        if(i > 1) {
+            Vec3D dir1 = n1.getPosition().subtract(path.get(i-2).getPosition());
+            Vec3D dir2 = n2.getPosition().subtract(n1.getPosition());
+
+            double angle = Math.toDegrees(dir1.angle(dir2));
+            if(Math.abs(angle) > 1) {
+                turnString = "Turn " + (angle < 0? "Right by " : "Left by ") + (int)Math.abs(angle) + "° ";
+            }
+        }
+
+        if(n1.getPosition().getZ() != n2.getPosition().getZ()) {
+            FloorChanger fc = getFloorChangerInfra(n1, n2);
+
+            String stairs = "Stairs (" + fc.getIndex() + ")";
+            if(fc.getInfratype() == Infratype.StairsDown) {
+                String cd = "Climb Down ";
+                setTextAndHighlightWithColor(cd+stairs, getResources().getColor(R.color.middle_pin_color), 0, 0);
+            }
+            if(fc.getInfratype() == Infratype.StairsUp) {
+                String cu = "Climb Up ";
+                setTextAndHighlightWithColor(cu+stairs, getResources().getColor(R.color.middle_pin_color), 0, 0);
+            }
+
+            navigationTextView.setText("Take Lift (" + fc.getIndex() + ") to Floor: " + (int)fc.getOtherEnd().getZ());
+            mapView.setMiddleNode(null);
+            return;
+        }
+
+        Vec3D direction = n2.getPosition().subtract(n1.getPosition());
+        Vec3D newDirection = n2.getPosition().subtract(n1.getPosition());
+
+        String lastNonEmptyInfraInfo = getMostUniqueInfraInformation(n2);
+        MapNode nonEmptyMiddleNode = n2;
+        do {
+            direction = newDirection;
+            i++;
+            if(i >= path.size()) break;
+
+            n1 = n2;
+            n2 = path.get(i);
+            newDirection = n2.getPosition().subtract(n1.getPosition());
+
+            String info = getMostUniqueInfraInformation(n1);
+            if(!info.isEmpty()) {
+                lastNonEmptyInfraInfo = info;
+                nonEmptyMiddleNode = n1;
+            }
+        } while(direction.hasSameDirectionAs(newDirection));
+
+        String infraInfo;
+        if(direction.hasSameDirectionAs(newDirection)) {
+            infraInfo = getMostUniqueInfraInformation(n2);
+            mapView.setMiddleNode(n2);
+        }
+        else {
+            infraInfo = getMostUniqueInfraInformation(n1);
+            mapView.setMiddleNode(n1);
+        }
+
+        if(infraInfo.isEmpty()) {
+            if(lastNonEmptyInfraInfo.isEmpty()) {
+                String kg = "Keep Going";
+                setTextAndHighlightWithColor(turnString+kg, getResources().getColor(R.color.middle_pin_color), turnString.length(), turnString.length()+kg.length());
+                mapView.setMiddleNode(n1);
+            }
+            else {
+                setTextAndHighlightWithColor(turnString+Goto+lastNonEmptyInfraInfo, getResources().getColor(R.color.middle_pin_color), turnString.length()+Goto.length(), turnString.length()+Goto.length()+lastNonEmptyInfraInfo.length());
+                mapView.setMiddleNode(nonEmptyMiddleNode);
+            }
+            return;
+        }
+
+        setTextAndHighlightWithColor(turnString+Goto+infraInfo, getResources().getColor(R.color.middle_pin_color), turnString.length()+Goto.length(), turnString.length()+Goto.length()+infraInfo.length());
+    }
+
+    private void setTextAndHighlightWithColor(String str, int colorResource, int start, int end) {
+        Spannable spannable = new SpannableString(str);
+
+        spannable.setSpan(new ForegroundColorSpan(colorResource), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        navigationTextView.setText(spannable, TextView.BufferType.SPANNABLE);
+    }
+
+    private FloorChanger getFloorChangerInfra(MapNode n1, MapNode n2) {
+        List<FloorChanger> floorChangerList1 = getFloorChangers(n1);
+        List<FloorChanger> floorChangerList2 = getFloorChangers(n2);
+
+        for(FloorChanger fc1 : floorChangerList1) {
+            for(FloorChanger fc2 : floorChangerList2) {
+                if(((fc1.getInfratype() == Infratype.StairsDown && fc2.getInfratype() == Infratype.StairsUp) ||
+                    (fc1.getInfratype() == Infratype.StairsUp && fc2.getInfratype() == Infratype.StairsDown) ||
+                    (fc1.getInfratype() == Infratype.LiftUp && fc2.getInfratype() == Infratype.LiftDown) ||
+                    (fc1.getInfratype() == Infratype.LiftDown && fc2.getInfratype() == Infratype.LiftUp)) &&
+                        fc1.getIndex() == fc2.getIndex() &&
+                    fc1.getOtherEnd().equals(n2.getPosition())) return fc1;
+            }
+        }
+
+        return null;
+    }
+
+    private List<FloorChanger> getFloorChangers(MapNode n) {
+        ArrayList<FloorChanger> toRet = new ArrayList<>();
+
+        for(Map<Integer, Map<Double, FloorChanger>> indexMap : floorChangerMap.values()) {
+            for(Map<Double, FloorChanger> floorMap : indexMap.values()) {
+                for(FloorChanger fc : floorMap.values()) {
+                    if((usingWheelChair && !fc.isAccessible()) || fc.getPosition() != n.getPosition()) continue;
+
+                    toRet.add(fc);
+                }
+            }
+        }
+
+        return toRet;
+    }
+
+    private String getMostUniqueInfraInformation(MapNode n) {
+        List<Integer> infraIndexList = nodeToInfra.get(n);
+        if(infraIndexList == null || infraIndexList.isEmpty()) return "";
+
+        Infra infra = null;
+        for(int i : infraIndexList) {
+            if(infra == null) {
+                infra = infraList.get(i);
+                continue;
+            }
+
+            Infra inf = infraList.get(i);
+
+            if(preferInfratypeTo(inf.getInfratype(), infra.getInfratype())) {
+                infra = inf;
+            }
+        }
+
+        return infra.getName();
+    }
+
+    private boolean preferInfratypeTo(Infratype t1, Infratype t2) {
+        if(t1 == Infratype.Room) return true;
+        if(t1 == Infratype.Washroom) {
+            if(t2 == Infratype.Room) return false;
+        }
+        if(t1 == Infratype.DrinkingWater) {
+            if(t2 == Infratype.Room) return false;
+            if(t2 == Infratype.Washroom) return false;
+        }
+        if(t1 == Infratype.LiftDown || t1 == Infratype.LiftUp) {
+            if(t2 == Infratype.Room) return false;
+            if(t2 == Infratype.Washroom) return false;
+            if(t2 == Infratype.DrinkingWater) return false;
+        }
+
+        if(t1 == Infratype.StairsDown || t1 == Infratype.StairsUp) {
+            if(t2 == Infratype.Room) return false;
+            if(t2 == Infratype.Washroom) return false;
+            if(t2 == Infratype.DrinkingWater) return false;
+            if(t2 == Infratype.LiftDown || t2 == Infratype.LiftUp) return false;
+        }
+
+        return true;
+    }
+
+    private void updatePath() {
+        if(startInfra == null || destinationInfra == null) return;
+
+        MapNode n1 = startInfra.getMapNode();
+        MapNode n2 = destinationInfra.getMapNode();
+        findPath(n1, n2, usingWheelChair);
+        mapView.setPath(path);
+        moveToFloor((int)path.get(0).getPosition().getZ());
+    }
+
+    private void updateTransportButtons() {
+        walkButton.setEnabled(usingWheelChair);
+        wheelchairButton.setEnabled(!usingWheelChair);
     }
 
     private void initializeFloorButtons() {
@@ -431,40 +662,47 @@ public class MainActivity extends Activity {
                     View v = floorButtonsLayout.getChildAt(i);
                     if(v instanceof Button) {
                         if(v == view) {
-                            ((Button) v).setTextColor(getResources().getColor(R.color.red));
+                            ((Button) v).setTextColor(getResources().getColor(R.color.white));
                         }
                         else {
-                            ((Button) v).setTextColor(getResources().getColor(R.color.white));
+                            ((Button) v).setTextColor(getResources().getColor(R.color.very_dark_gray));
                         }
                     }
                 }
                 moveToFloor(btnFloor);
             });
 
-            if(floor == 0) floorButton.setTextColor(getResources().getColor(R.color.red));
+            currentFloor = 0;
+            if(floor == 0) floorButton.setTextColor(getResources().getColor(R.color.white));
 
             floorButtonsLayout.addView(floorButton, 0);
             floorButton.setTextSize((int)MapView.pxFromDp(this, 12));
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams((int)MapView.pxFromDp(this, 60), (int)MapView.pxFromDp(this, 60));
-            params.setMargins(10, 10, 10, 10);
+            params.setMargins(10, 10, 10, 20);
             floorButton.setLayoutParams(params);
         }
 
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams((int)MapView.pxFromDp(this, 60), (int)MapView.pxFromDp(this, 60));
-        params.setMargins(10, 0, 10, 10);
-        floorButtonsLayout.getChildAt(0).setLayoutParams(params);
-        params.setMargins(10, 10, 10, 0);
-        floorButtonsLayout.getChildAt(floorButtonsLayout.getChildCount()-1).setLayoutParams(params);
+        LinearLayout.LayoutParams arrowParams = new LinearLayout.LayoutParams((int)MapView.pxFromDp(this, 60), (int)MapView.pxFromDp(this, 40));
+        arrowParams.setMargins(10, 0, 10, 0);
 
-        LinearLayout.LayoutParams arrowParams = new LinearLayout.LayoutParams((int)MapView.pxFromDp(this, 40), (int)MapView.pxFromDp(this, 40));
-        arrowParams.setMargins(0, 0, 0, 0);
+        Button upArrow = new Button(this);
+        Button downArrow = new Button(this);
 
-        ImageView upArrow = new ImageView(this);
-        upArrow.setImageDrawable(getResources().getDrawable(R.drawable.ic_baseline_keyboard_arrow_up_24));
+        upArrow.setBackground(getResources().getDrawable(R.drawable.ic_baseline_keyboard_arrow_up_24));
+        downArrow.setBackground(getResources().getDrawable(R.drawable.ic_baseline_keyboard_arrow_down_24));
+
+        upArrow.setOnClickListener((v) -> {
+            if(currentFloor < maxFloor) moveToFloor(currentFloor+1);
+            if(currentFloor == maxFloor) upArrow.setEnabled(false);
+            if(currentFloor > minFloor) downArrow.setEnabled(true);
+        });
+        downArrow.setOnClickListener((v) -> {
+            if(currentFloor > minFloor) moveToFloor(currentFloor-1);
+            if(currentFloor == minFloor) downArrow.setEnabled(false);
+            if(currentFloor < maxFloor) upArrow.setEnabled(true);
+        });
+
         floorButtonsLayout.addView(upArrow, 0, arrowParams);
-
-        ImageView downArrow = new ImageView(this);
-        downArrow.setImageDrawable(getResources().getDrawable(R.drawable.ic_baseline_keyboard_arrow_down_24));
         floorButtonsLayout.addView(downArrow, arrowParams);
 
         // try to refresh floorButtonsLayout, invalidate() with/without requestLayout() doesn't work
@@ -521,20 +759,25 @@ public class MainActivity extends Activity {
     }
 
     private void moveToFloor(int floor) {
-        if(floor == 1)
+        System.out.println(floor);
+        if(floor == 1) {
             mapView.setStartNode(nodeList.get(35));
-        else if(floor == 0)
+            currentFloor = 1;
+        }
+        else if(floor == 0) {
             mapView.setStartNode(nodeList.get(0));
+            currentFloor = 0;
+        }
 
         for(int i = 0; i < floorButtonsLayout.getChildCount(); i++) {
             View v = floorButtonsLayout.getChildAt(i);
             if(v instanceof Button) {
                 Button btn = (Button) v;
                 if(btn.getText().equals(floor + "")) {
-                    btn.setTextColor(getResources().getColor(R.color.red));
+                    btn.setTextColor(getResources().getColor(R.color.white));
                 }
                 else {
-                    btn.setTextColor(getResources().getColor(R.color.white));
+                    btn.setTextColor(getResources().getColor(R.color.very_dark_gray));
                 }
             }
         }
@@ -542,10 +785,11 @@ public class MainActivity extends Activity {
 
     private void moveToMapView() {
         mapView.setHighlightNode(null);
+        mapView.setMiddleNode(null);
         relativeLayout.addView(mapView);
         relativeLayout.addView(floorButtonsLayout);
         relativeLayout.removeView(searchResultsView);
-        relativeLayout.addView(directionsButton);
+        relativeLayout.addView(directionsLayout);
         relativeLayout.removeView(navigationLayout);
         directionsButton.setOnClickListener((View view) -> {
             moveToDirections();
@@ -570,6 +814,7 @@ public class MainActivity extends Activity {
     private void bringHudToFront() {
         relativeLayout.bringChildToFront(searchView);
         relativeLayout.bringChildToFront(floorButtonsLayout);
+        relativeLayout.bringChildToFront(directionsLayout);
     }
 
     private class HeapNode implements Comparable<HeapNode> {

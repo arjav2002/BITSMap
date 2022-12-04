@@ -6,6 +6,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.util.DisplayMetrics;
@@ -69,14 +70,17 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     private Paint showCoordbgPaint;
     private Paint showCoordTextPaint;
     private Paint highlightNodePaint;
+    private Paint middleNodePaint;
     private MapNode showCoordNode;
+    private MapNode middleNode;
     private MapNode highlightNode;
 
     private ReentrantLock mutex;
 
     private static final float nodeRadius = 0.3f;
+    private static final float highlightedNodeRadius = 0.5f;
     private static final float pathWidth = 3f;
-    private static final float pathThickness = 0.35f;
+    private static final float pathThickness = 0.8f;
     private static final float MAX_DRAG_SPEED = 500;
     private static final float TEXT_DP = 0.5f;
     private static final float SHOW_COORD_DIST = 1;
@@ -103,6 +107,8 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
 
     private Drawable personPin;
     private Drawable locationPin;
+    private Drawable startPin;
+    private Drawable middlePin;
 
     public MapView(Context context, Map<MapNode, List<MapNode>> graph, Map<MapNode, List<Integer>> nodeToInfra, MapNode startNode, List<Infra> infraList) {
         super(context);
@@ -120,6 +126,8 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
 
         personPin = getResources().getDrawable(R.drawable.ic_baseline_person_pin_circle_24);
         locationPin = getResources().getDrawable(R.drawable.ic_baseline_location_on_24);
+        startPin = getResources().getDrawable(R.drawable.ic_baseline_location_start_24);
+        middlePin = getResources().getDrawable(R.drawable.ic_baseline_location_middle_24);
 
         this.graph = graph;
         this.nodeToInfra = nodeToInfra;
@@ -166,6 +174,10 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
         highlightNodePaint = new Paint(Paint.LINEAR_TEXT_FLAG | Paint.ANTI_ALIAS_FLAG);
         highlightNodePaint.setColor(Color.RED);
         highlightNodePaint.setTextSize(textSize);
+
+        middleNodePaint = new Paint(Paint.LINEAR_TEXT_FLAG | Paint.ANTI_ALIAS_FLAG);
+        middleNodePaint.setColor(getResources().getColor(R.color.middle_pin_color));
+        middleNodePaint.setTextSize(textSize);
 
         bgPaint = new Paint();
         bgPaint.setColor(Color.WHITE);
@@ -309,7 +321,9 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
                 canvas.translate((float) node.getPosition().getX(), (float) node.getPosition().getY());
                 canvas.rotate(rotateAngle);
                 canvas.scale(1, -1);
+
                 canvas.drawText(infra.getName(), dx, dy, textPaint);
+
                 canvas.drawRect(dl, dt, dr, db, doorPaint);
                 canvas.scale(1, -1);
                 canvas.rotate(-rotateAngle);
@@ -351,11 +365,30 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
 
         startIndex = i-1;
 
+        int oldI = i;
+        MapNode oldN1 = n1;
         while(i < path.size()) {
             MapNode n2 = path.get(i);
             if((int)n2.getPosition().getZ() != floor) break;
-            canvas.drawLine((float)n1.getPosition().getX(), (float)n1.getPosition().getY(),
-                    (float)n2.getPosition().getX(), (float)n2.getPosition().getY(), linePaint);
+
+            canvas.drawLine(
+                    (float)n1.getPosition().getX(),
+                    (float)n1.getPosition().getY(),
+                    (float)n2.getPosition().getX(),
+                    (float)n2.getPosition().getY(), linePaint);
+
+            n1 = n2;
+            i++;
+        }
+
+        i = oldI;
+        n1 = oldN1;
+        while(i < path.size()) {
+            MapNode n2 = path.get(i);
+            if((int)n2.getPosition().getZ() != floor) break;
+
+            canvas.drawCircle((float) n1.getPosition().getX(), (float) n1.getPosition().getY(), highlightedNodeRadius, nodePaint);
+            canvas.drawCircle((float) n2.getPosition().getX(), (float) n2.getPosition().getY(), highlightedNodeRadius, nodePaint);
 
             n1 = n2;
             i++;
@@ -388,15 +421,6 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
 //        Arrays.fill(visited, false);
 //        drawLines(canvas, visited, startNode);
 
-        if(path != null && path.size() >= 2) {
-            drawPath(canvas);
-            if(pathChanged) {
-                centerWorldCoords(path.get(startIndex).getPosition().add(path.get(endIndex).getPosition()).divide(2));
-                zoomOutTillBothPinsVisible();
-                pathChanged = false;
-            }
-        }
-
         for(MapNode node : graph.keySet()) {
             if(node.getPosition().getZ() != startNode.getPosition().getZ()) continue;
             canvas.drawCircle((float)node.getPosition().getX(), (float)node.getPosition().getY(), nodeRadius, nodePaint);
@@ -424,18 +448,26 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
                     (float)-(showCoordNode.getPosition().getY()));
         }
 
+        if(path != null && path.size() >= 2) {
+            drawPath(canvas);
+            if(pathChanged) {
+                centerWorldCoords(path.get(startIndex).getPosition().add(path.get(endIndex).getPosition()).divide(2));
+                zoomOutTillBothPinsVisible();
+                pathChanged = false;
+            }
+
+            drawPinAtNode(locationPin, path.get(path.size()-1), canvas);
+            drawPinAtNode(startPin, path.get(0), canvas);
+            if(middleNode != null && middleNode.getPosition().getZ() == startNode.getPosition().getZ()) {
+                canvas.drawCircle((float)middleNode.getPosition().getX(), (float)middleNode.getPosition().getY(), nodeRadius, middleNodePaint);
+                drawPinAtNode(middlePin, middleNode, canvas);
+            }
+        }
+
         if(highlightNode != null && highlightNode.getPosition().getZ() == startNode.getPosition().getZ()) {
             canvas.drawCircle((float)highlightNode.getPosition().getX(), (float)highlightNode.getPosition().getY(), nodeRadius, highlightNodePaint);
 
-            canvas.scale(1, -1);
-            personPin.setBounds(
-                    (int)(highlightNode.getPosition().getX() - LOC_PIN_WIDTH /2),
-                    (int) -(highlightNode.getPosition().getY() + LOC_PIN_HEIGHT),
-                    (int) (highlightNode.getPosition().getX() + LOC_PIN_WIDTH /2),
-                    (int) -(highlightNode.getPosition().getY())
-            );
-            personPin.draw(canvas);
-            canvas.scale(1, -1);
+            drawPinAtNode(personPin, highlightNode, canvas);
 
             if(!nodeHighlighted) {
                 nodeHighlighted = true;
@@ -446,21 +478,23 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
                 mutex.unlock();
             }
         }
+    }
 
-        if(path != null && path.size() > 0) {
-            MapNode destinationNode = path.get(path.size()-1);
-            if(destinationNode.getPosition().getZ() == startNode.getPosition().getZ()) {
-                canvas.scale(1, -1);
-                locationPin.setBounds(
-                        (int)(destinationNode.getPosition().getX() - LOC_PIN_WIDTH /2),
-                        (int) -(destinationNode.getPosition().getY() + LOC_PIN_HEIGHT),
-                        (int) (destinationNode.getPosition().getX() + LOC_PIN_WIDTH /2),
-                        (int) -(destinationNode.getPosition().getY())
-                );
-                locationPin.draw(canvas);
-                canvas.scale(1, -1);
-            }
+    private void drawPinAtNode(Drawable drawable, MapNode node, Canvas canvas) {
+        if(node.getPosition().getZ() == startNode.getPosition().getZ()) {
+            drawPin(drawable,
+                    node.getPosition().getX() - LOC_PIN_WIDTH / 2,
+                    -(node.getPosition().getY() + LOC_PIN_HEIGHT),
+                    node.getPosition().getX() + LOC_PIN_WIDTH / 2,
+                    -(node.getPosition().getY()), canvas);
         }
+    }
+
+    private void drawPin(Drawable drawable, double left, double top, double right, double bottom, Canvas canvas) {
+        canvas.scale(1, -1);
+        drawable.setBounds((int)left, (int) top, (int) right, (int) bottom);
+        drawable.draw(canvas);
+        canvas.scale(1, -1);
     }
 
     float[] values = new float[9];
@@ -580,6 +614,10 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
             this.showCoordNode = showCoordNode;
             invalidate();
         }
+    }
+
+    public void setMiddleNode(MapNode middleNode) {
+        this.middleNode = middleNode;
     }
 
     public void setHighlightNode(MapNode highlightNode) {
