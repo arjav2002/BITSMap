@@ -10,51 +10,50 @@
     android:background="@color/search_background_gray"
     tools:context=".MainActivity">
 
-    <LinearLayout
-        android:id="@+id/directionsLayout"
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent"
-        android:gravity="bottom"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentBottom="true"
-        android:orientation="vertical"
-        android:padding="15dp">
-
-        <Button
-            android:id="@+id/directionsButton"
-            android:layout_width="100dp"
-            android:layout_height="100dp"
-            android:layout_marginEnd="0dp"
-            android:layout_marginBottom="0dp"
-            android:background="@drawable/ic_baseline_directions_24" />
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textAlignment="center"
-            android:textSize="19sp"
-            android:textColor="@color/black"
-            android:textStyle="bold"
-            android:text="@string/directions"/>
-    </LinearLayout>
-
-
-    <androidx.appcompat.widget.SearchView
-        android:id="@+id/searchView"
+    <RelativeLayout
+        android:id="@+id/searchLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="8dp"
-        android:background="@drawable/search_view_rounded_corners"
-        android:backgroundTint="@color/black"
-        app:iconifiedByDefault="false"
-        app:queryHint="Search here..." />
+        android:paddingTop="8dp">
+
+        <androidx.appcompat.widget.SearchView
+            android:id="@+id/searchView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/search_view_rounded_corners"
+            android:backgroundTint="@color/black"
+            android:layout_alignParentStart="true"
+            android:layout_toStartOf="@id/directionsLayout"
+            android:layout_centerVertical="true"
+            app:iconifiedByDefault="false"
+            app:queryHint="Search here..." />
+
+        <LinearLayout
+            android:id="@+id/directionsLayout"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:orientation="vertical"
+            android:layout_marginEnd="8dp">
+
+            <Button
+                android:id="@+id/directionsButton"
+                android:layout_width="75dp"
+                android:layout_height="75dp"
+                android:layout_marginEnd="0dp"
+                android:layout_marginBottom="0dp"
+                android:background="@drawable/ic_baseline_directions_24" />
+        </LinearLayout>
+
+    </RelativeLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/searchResultsRecycler"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@+id/searchView"
+        android:layout_below="@+id/searchLayout"
         android:layout_marginStart="8dp"
         android:layout_marginLeft="8dp"
         android:layout_marginTop="8dp"
@@ -69,7 +68,6 @@
         android:padding="15dp"
         android:gravity="bottom"
         android:orientation="vertical"
-        android:layout_alignTop="@+id/searchView"
         android:layout_alignParentStart="true" />
 
 </RelativeLayout>

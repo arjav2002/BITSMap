@@ -18,4 +18,5 @@
     <color name="finish_red">#EE0000</color>
     <color name="very_dark_gray">#555555</color>
     <color name="middle_pin_color">#DDDD00</color>
+    <color name="light_gray">#EEEEEE</color>
 </resources>

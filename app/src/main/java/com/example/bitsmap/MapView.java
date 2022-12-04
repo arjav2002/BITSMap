@@ -6,7 +6,6 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
-import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.util.DisplayMetrics;
@@ -39,8 +38,6 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     private float translateX = 0f;
     private float translateY = 0f;
 
-    private float previousTranslateX = 0f;
-    private float previousTranslateY = 0f;
 
     private boolean dragged = true;
     private final int displayWidth;
@@ -82,8 +79,10 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     private static final float MAX_DRAG_SPEED = 500;
     private static final float TEXT_DP = 0.5f;
     private static final float SHOW_COORD_DIST = 1;
-    private static final float SHOW_COORD_CHAR_WIDTH = 0.6f;
-    private static final float SHOW_COORD_HEIGHT = 2.5f;
+    private static final float INFRA_ICON_WIDTH = 2f;
+    private static final float INFRA_ICON_HEIGHT = 2f;
+    private static final float INFRA_DOOR_ICON_CLEARANCE = 0.75f;
+    private static final float INFRA_ICON_CANVAS_DRAW_SCALE = 10f;
     private static final float CHAR_FACTOR = 0.6f;
     private static final float DOOR_THICKNESS = 0.2f;
     private static final float DOOR_LENGTH = 1.5f;
@@ -99,7 +98,6 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     private ArrayList<MapNode> path;
     private int startIndex, endIndex;
     private boolean pathChanged;
-    private boolean nodeHighlighted;
     private boolean isShowCoordNullable;
 
     private Context context;
@@ -108,6 +106,7 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     private Drawable locationPin;
     private Drawable startPin;
     private Drawable middlePin;
+    private Drawable disabledIcon;
 
     private MainActivity mainActivity;
 
@@ -134,6 +133,7 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
         locationPin = getResources().getDrawable(R.drawable.ic_baseline_location_on_24);
         startPin = getResources().getDrawable(R.drawable.ic_baseline_location_start_24);
         middlePin = getResources().getDrawable(R.drawable.ic_baseline_location_middle_24);
+        disabledIcon = getResources().getDrawable(R.drawable.ic_baseline_disabled_by_default_24);
 
         this.graph = graph;
         this.nodeToInfra = nodeToInfra;
@@ -255,25 +255,18 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
 
                     float[] worldCoordsAtCenter = {displayWidth/2, displayHeight/2, 1};
                     getWorldCoord(worldCoordsAtCenter);
-                    System.out.println("W@C: " + worldCoordsAtCenter[0] + ", " + worldCoordsAtCenter[1]);
 
                     float newWorldAtCenterX = worldCoordsAtCenter[0] + values[0] * translateX;
                     float newWorldAtCenterY = worldCoordsAtCenter[1] + values[4] * translateY;
 
-                    System.out.println("NEW_W@C: " + newWorldAtCenterX + ", " + newWorldAtCenterY);
-
                     newWorldAtCenterX = Math.max(minX, Math.min(maxX, newWorldAtCenterX));
                     newWorldAtCenterY = Math.max(minY, Math.min(maxY, newWorldAtCenterY));
-
-                    System.out.println("CLAMPED_W@C: " + newWorldAtCenterX + ", " + newWorldAtCenterY);
 
                     float[] newScreenCoordinates = {newWorldAtCenterX, newWorldAtCenterY, 1};
                     getScreenCoords(newScreenCoordinates);
 
                     translateX = displayWidth/2 - newScreenCoordinates[0];
                     translateY = displayHeight/2 - newScreenCoordinates[1];
-
-                    System.out.println(translateX + ", " + translateY);
 
                     worldToScreen.postTranslate(translateX, translateY);
 
@@ -327,8 +320,10 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
                 float rotateAngle = 0;
                 float dx = 0, dy = 0;
                 float dr = 0, dt = 0, dl = 0, db = 0;
+
+                float ix = 0, iy = 0;
                 if(infra.getOrientation() == Orientation.Down) {
-                    rotateAngle = 90;
+                    rotateAngle = -90;
                     dx = -pathWidth/2 - textLength*textSize*CHAR_FACTOR - 0.3f;
                     dy = 0.35f*textSize;
 
@@ -336,9 +331,12 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
                     dr = -pathWidth/2;
                     dt = DOOR_LENGTH/2;
                     db = -DOOR_LENGTH/2;
+
+                    ix = -INFRA_ICON_WIDTH/2;
+                    iy = pathWidth/2 + DOOR_THICKNESS + INFRA_DOOR_ICON_CLEARANCE;
                 }
                 else if(infra.getOrientation() == Orientation.Up) {
-                    rotateAngle = 90;
+                    rotateAngle = -90;
                     dx = pathWidth/2 + 0.6f;
                     dy = 0.35f*textSize;
 
@@ -346,6 +344,9 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
                     dr = pathWidth/2;
                     dt = DOOR_LENGTH/2;
                     db = -DOOR_LENGTH/2;
+
+                    ix = -INFRA_ICON_WIDTH/2;
+                    iy = -pathWidth - DOOR_THICKNESS - INFRA_DOOR_ICON_CLEARANCE;
                 }
                 else if(infra.getOrientation() == Orientation.Left) {
                     rotateAngle = 0;
@@ -356,6 +357,9 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
                     dr = -pathWidth/2;
                     dt = DOOR_LENGTH/2;
                     db = -DOOR_LENGTH/2;
+
+                    ix = -pathWidth - DOOR_THICKNESS - INFRA_DOOR_ICON_CLEARANCE*1.5f;
+                    iy = -INFRA_ICON_HEIGHT/2;
                 }
                 else if(infra.getOrientation() == Orientation.Right) {
                     rotateAngle =  0;
@@ -366,17 +370,28 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
                     dr = pathWidth/2 + DOOR_THICKNESS;
                     dt = DOOR_LENGTH/2;
                     db = -DOOR_LENGTH/2;
+
+                    ix = pathWidth/2 + DOOR_THICKNESS + INFRA_DOOR_ICON_CLEARANCE;
+                    iy = -INFRA_ICON_HEIGHT/2;
                 }
 
                 canvas.translate((float) node.getPosition().getX(), (float) node.getPosition().getY());
+                canvas.scale(1, -1);
+
+                if(infra.getInfratype() == Infratype.Room) {
+                    canvas.rotate(rotateAngle);
+                    canvas.drawText(infra.getName(), dx, dy, textPaint);
+                    canvas.rotate(-rotateAngle);
+                }
+                else {
+                    drawInfra(infra, canvas, ix, iy);
+                }
+
                 canvas.rotate(rotateAngle);
-                canvas.scale(1, -1);
-
-                canvas.drawText(infra.getName(), dx, dy, textPaint);
-
                 canvas.drawRect(dl, dt, dr, db, doorPaint);
-                canvas.scale(1, -1);
                 canvas.rotate(-rotateAngle);
+
+                canvas.scale(1, -1);
                 canvas.translate((float) -node.getPosition().getX(), (float) -node.getPosition().getY());
             }
         }
@@ -392,6 +407,21 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
 
             drawConnections(canvas, visited, n);
         }
+    }
+
+    private void drawInfra(Infra infra, Canvas canvas, float ix, float iy) {
+        canvas.scale(1/INFRA_ICON_CANVAS_DRAW_SCALE, 1/INFRA_ICON_CANVAS_DRAW_SCALE);
+        ix *= INFRA_ICON_CANVAS_DRAW_SCALE;
+        iy *= INFRA_ICON_CANVAS_DRAW_SCALE;
+
+        disabledIcon.setBounds(
+                (int) (ix),
+                (int) (iy),
+                (int) (ix + INFRA_ICON_WIDTH*INFRA_ICON_CANVAS_DRAW_SCALE),
+                (int) (iy + INFRA_ICON_HEIGHT*INFRA_ICON_CANVAS_DRAW_SCALE)
+        );
+        disabledIcon.draw(canvas);
+        canvas.scale(INFRA_ICON_CANVAS_DRAW_SCALE, INFRA_ICON_CANVAS_DRAW_SCALE);
     }
 
     public void setPath(ArrayList<MapNode> path) {
@@ -476,10 +506,6 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
             canvas.drawCircle((float)node.getPosition().getX(), (float)node.getPosition().getY(), nodeRadius, nodePaint);
         }
 
-        if(showCoordNode != null) {
-            drawPinAtNode(locationPin, showCoordNode, canvas);
-        }
-
         if(path != null && path.size() >= 2) {
             drawPath(canvas);
             if(pathChanged) {
@@ -500,15 +526,10 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
             canvas.drawCircle((float)highlightNode.getPosition().getX(), (float)highlightNode.getPosition().getY(), nodeRadius, highlightNodePaint);
 
             drawPinAtNode(personPin, highlightNode, canvas);
+        }
 
-            if(!nodeHighlighted) {
-                nodeHighlighted = true;
-                mutex.lock();
-                float[] sc = {(float)highlightNode.getPosition().getX(), (float)highlightNode.getPosition().getY(), 1};
-                getScreenCoords(sc);
-                worldToScreen.postTranslate(-sc[0] + displayWidth/2, -sc[1] + displayHeight/2 + pxFromDp(this.context, 100));
-                mutex.unlock();
-            }
+        if(showCoordNode != null) {
+            drawPinAtNode(locationPin, showCoordNode, canvas);
         }
     }
 
@@ -671,15 +692,61 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     public MapNode getShowCoordNode() { return showCoordNode; }
 
     public void setMiddleNode(MapNode middleNode) {
+        MapNode oldNode = this.middleNode;
         this.middleNode = middleNode;
+        if(middleNode != oldNode && middleNode != null) {
+            System.out.println("CALLED");
+            centerAndZoomOutWhileMiddlePinNotFullyVisible();
+        }
     }
+
+    public MapNode getMiddleNode() { return middleNode; }
 
     public void setHighlightNode(MapNode highlightNode) {
         if(highlightNode != this.highlightNode) {
             this.highlightNode = highlightNode;
-            nodeHighlighted = false;
             invalidate();
         }
+    }
+
+    public void centerAndZoomOutWhileMiddlePinNotFullyVisible() {
+        centerWorldCoords(highlightNode.getPosition().add(middleNode.getPosition()).divide(2));
+
+        mutex.lock();
+        do {
+            worldToScreen.postScale(1/SCALE_SPEED, 1/SCALE_SPEED, (float)displayWidth/2, (float)displayHeight/2);
+        } while(!isMiddlePinVisible());
+        mutex.unlock();
+    }
+
+    private boolean isMiddlePinVisible() {
+        mutex.lock();
+
+        worldToScreen.getValues(values);
+        float left = (float) (middleNode.getPosition().getX() - LOC_PIN_WIDTH/values[0] / 2);
+        float top = (float) (middleNode.getPosition().getY() + LOC_PIN_HEIGHT/values[4]);
+        float right = (float) (middleNode.getPosition().getX() + LOC_PIN_WIDTH/values[0] / 2);
+        float bottom = (float) (middleNode.getPosition().getY());
+
+        RectF worldMiddleRect = new RectF((int) left, (int) bottom, (int) right, (int) top);
+
+        RectF worldScreenRect = new RectF();
+        float[] worldCoords = {0, 0, 1};
+        getWorldCoord(worldCoords);
+        worldScreenRect.left = worldCoords[0];
+        worldScreenRect.top = worldCoords[1];
+        worldCoords[0] = displayWidth;
+        worldCoords[1] = displayHeight;
+        worldCoords[2] = 1;
+        getWorldCoord(worldCoords);
+        worldScreenRect.right = worldCoords[0];
+        worldScreenRect.bottom = worldCoords[1];
+        float tmp = worldScreenRect.top;
+        worldScreenRect.top = worldScreenRect.bottom;
+        worldScreenRect.bottom = tmp;
+
+        mutex.unlock();
+        return worldScreenRect.contains(worldMiddleRect);
     }
 
     public void centerWorldCoords(Vec3D worldCoord) {

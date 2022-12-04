@@ -49,19 +49,22 @@ public class MainActivity extends Activity {
 
     private ArrayList<SearchResult> searchResults;
 
+    private RelativeLayout searchLayout;
     private SearchView searchView;
     private RecyclerView searchResultsView;
     private Infra searchViewInfra;
+
+    private LinearLayout directionsLayout;
+    private Button directionsButton;
+    private TextView navigationTextView;
+    private Button focusPathButton;
+    private TextView directionsTextView;
 
     private LinearLayout floorButtonsLayout;
     private RelativeLayout navigationLayout;
     private Set<Integer> floorSet;
 
     private SearchResultViewHolder searchResultViewHolder;
-
-    private LinearLayout directionsLayout;
-    private Button directionsButton;
-    private TextView navigationTextView;
 
     private LinearLayout transportLayout;
     private Button walkButton;
@@ -217,7 +220,9 @@ public class MainActivity extends Activity {
         relativeLayout.addView(mapView);
         mapViewOn = true;
 
-        searchView = findViewById(R.id.searchView);
+        searchLayout = findViewById(R.id.searchLayout);
+        searchView = searchLayout.findViewById(R.id.searchView);
+
         searchResultsView = findViewById(R.id.searchResultsRecycler);
         relativeLayout.removeView(searchResultsView);
 
@@ -236,7 +241,7 @@ public class MainActivity extends Activity {
             if(hasFocus && mapViewOn) {
                 relativeLayout.removeView(mapView);
                 relativeLayout.removeView(floorButtonsLayout);
-                relativeLayout.removeView(directionsLayout);
+                searchLayout.removeView(directionsLayout);
                 relativeLayout.addView(searchResultsView);
                 mapViewOn = false;
 
@@ -264,7 +269,7 @@ public class MainActivity extends Activity {
             moveToDirections();
         });
 
-        directionsLayout = findViewById(R.id.directionsLayout);
+        directionsLayout = searchLayout.findViewById(R.id.directionsLayout);
 
         bringHudToFront();
     }
@@ -313,6 +318,8 @@ public class MainActivity extends Activity {
                 relativeLayout.removeView(floorButtonsLayout);
                 relativeLayout.removeView(destinationSearchLayout);
                 relativeLayout.removeView(transportLayout);
+                directionsLayout.removeView(directionsTextView);
+                relativeLayout.removeView(directionsLayout);
 
                 RelativeLayout.LayoutParams searchResultsViewParams = new RelativeLayout.LayoutParams(searchResultsView.getLayoutParams());
                 searchResultsViewParams.setMargins((int)MapView.pxFromDp(this, 8),
@@ -349,6 +356,8 @@ public class MainActivity extends Activity {
                 relativeLayout.removeView(floorButtonsLayout);
                 relativeLayout.removeView(sourceSearchLayout);
                 relativeLayout.removeView(transportLayout);
+                directionsLayout.removeView(directionsTextView);
+                relativeLayout.removeView(directionsLayout);
 
                 destinationParams.topMargin = (int) MapView.pxFromDp(this, 8);
                 destinationSearchLayout.setLayoutParams(destinationParams);
@@ -383,55 +392,80 @@ public class MainActivity extends Activity {
         if(startInfra != null && destinationInfra != null) {
             updatePath();
             mapView.setShowCoordNode(null);
-            relativeLayout.addView(directionsLayout, directionsLayout.getLayoutParams());
+            mapView.centerWorldCoords(startInfra.getPosition().add(destinationInfra.getPosition()).divide(2));
+
+            searchLayout.removeView(directionsLayout);
+            RelativeLayout.LayoutParams params1 = (RelativeLayout.LayoutParams) directionsLayout.getLayoutParams();
+            params1.addRule(RelativeLayout.CENTER_VERTICAL);
+            params1.setMargins(0, 0, (int) MapView.pxFromDp(this, 20), (int) MapView.pxFromDp(this, 20));
+
+            directionsTextView = (TextView) LayoutInflater.from(this).inflate(R.layout.directions_textview, null);
+            RelativeLayout.LayoutParams params2 = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
+            params2.setMargins(0, (int)MapView.pxFromDp(this, 10), 0, 0);
+            directionsLayout.addView(directionsTextView);
+
+            relativeLayout.addView(directionsLayout, params1);
+
             directionsButton.setOnClickListener((view) -> {
                 relativeLayout.removeView(sourceSearchLayout);
                 relativeLayout.removeView(destinationSearchLayout);
                 relativeLayout.removeView(directionsLayout);
+
+                searchLayout.addView(directionsLayout);
                 relativeLayout.removeView(transportLayout);
+
+                focusPathButton = (Button) LayoutInflater.from(this).inflate(R.layout.focus_path, null);
+                RelativeLayout.LayoutParams focusPathParams = new RelativeLayout.LayoutParams((int) MapView.pxFromDp(this, 70), (int) MapView.pxFromDp(this, 70));
+                focusPathParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+                focusPathParams.addRule(RelativeLayout.ALIGN_PARENT_END);
+                focusPathParams.setMargins(0, 0, (int) MapView.pxFromDp(this, 10), (int) MapView.pxFromDp(this, 10));
+                relativeLayout.addView(focusPathButton, focusPathParams);
+                focusPathButton.setOnClickListener((v) -> {
+                    if(mapView.getMiddleNode() != null) mapView.centerAndZoomOutWhileMiddlePinNotFullyVisible();
+                    else mapView.centerWorldCoords(path.get(currentPathIndex).getPosition());
+                });
 
                 navigationLayout = (RelativeLayout) LayoutInflater.from(this).inflate(R.layout.navigation_prompt, relativeLayout);
 
                 navigationTextView = navigationLayout.findViewById(R.id.promptView);
-                currentPathIndex = 1;
+                currentPathIndex = 0;
 
                 if(path.size() >= 2) {
-                    currentPathIndex++;
-                    setCurrentAction(currentPathIndex-1);
-                    mapView.setHighlightNode(path.get(currentPathIndex-1));
+                    mapView.setHighlightNode(path.get(currentPathIndex));
+                    setCurrentAction(currentPathIndex);
                     navigationLayout.findViewById(R.id.prevBtn).setBackgroundColor(getResources().getColor(R.color.search_background_gray));
                 }
 
                 relativeLayout.findViewById(R.id.nextBtn).setOnClickListener((v) -> {
-                    if(currentPathIndex <= path.size()-2) {
+                    if(currentPathIndex < path.size()-1) {
                         currentPathIndex++;
-                        setCurrentAction(currentPathIndex-1);
-                        mapView.setHighlightNode(path.get(currentPathIndex-1));
-                        moveToFloor((int)path.get(currentPathIndex-1).getPosition().getZ());
+                        mapView.setHighlightNode(path.get(currentPathIndex));
+                        setCurrentAction(currentPathIndex);
+                        moveToFloor((int)path.get(currentPathIndex).getPosition().getZ());
                     }
 
-                    if(currentPathIndex > path.size()-2) {
+                    if(currentPathIndex >= path.size()-1) {
                         navigationLayout.findViewById(R.id.nextBtn).setBackgroundColor(getResources().getColor(R.color.search_background_gray));
                     }
 
-                    if(currentPathIndex >= 2) {
+                    if(currentPathIndex >= 1) {
                         navigationLayout.findViewById(R.id.prevBtn).setBackgroundColor(getResources().getColor(R.color.green));
                     }
                 });
 
                 relativeLayout.findViewById(R.id.prevBtn).setOnClickListener((v) -> {
-                    if(currentPathIndex >= 2) {
+                    if(currentPathIndex >= 1) {
                         currentPathIndex--;
-                        setCurrentAction(currentPathIndex-1);
-                        mapView.setHighlightNode(path.get(currentPathIndex-1));
-                        moveToFloor((int)path.get(currentPathIndex-1).getPosition().getZ());
+                        mapView.setHighlightNode(path.get(currentPathIndex));
+                        setCurrentAction(currentPathIndex);
+                        moveToFloor((int)path.get(currentPathIndex).getPosition().getZ());
                     }
 
-                    if(currentPathIndex < 2) {
+                    if(currentPathIndex < 1) {
                         navigationLayout.findViewById(R.id.prevBtn).setBackgroundColor(getResources().getColor(R.color.search_background_gray));
                     }
 
-                    if(currentPathIndex <= path.size()-2) {
+                    if(currentPathIndex < path.size()-1) {
                         navigationLayout.findViewById(R.id.nextBtn).setBackgroundColor(getResources().getColor(R.color.green));
                     }
                 });
@@ -462,15 +496,20 @@ public class MainActivity extends Activity {
         updateTransportButtons();
     }
 
+    private static final String haveReachedDestination="\nYou have reached your destination.";
+    private static final String destination="destination.";
+
     private void setCurrentAction(int i) {
         String Goto="Goto ";
+        int personLoc = i;
+
+        MapNode n1 = path.get(i);
+
         if(i == path.size()-1) {
-            setTextAndHighlightWithColor(Goto + destinationInfra.getName(), getResources().getColor(R.color.finish_red), Goto.length(), Goto.length()+destinationInfra.getName().length());
-            mapView.setMiddleNode(null);
+            setTextAndHighlightWithColor(haveReachedDestination, getResources().getColor(R.color.middle_pin_color), 0, 0);
             return;
         }
 
-        MapNode n1 = path.get(i);
         i++;
         MapNode n2 = path.get(i);
 
@@ -492,10 +531,12 @@ public class MainActivity extends Activity {
             if(fc.getInfratype() == Infratype.StairsDown) {
                 String cd = "Climb Down ";
                 setTextAndHighlightWithColor(cd+stairs, getResources().getColor(R.color.middle_pin_color), 0, 0);
+                return;
             }
             if(fc.getInfratype() == Infratype.StairsUp) {
                 String cu = "Climb Up ";
                 setTextAndHighlightWithColor(cu+stairs, getResources().getColor(R.color.middle_pin_color), 0, 0);
+                return;
             }
 
             navigationTextView.setText("Take Lift (" + fc.getIndex() + ") to Floor: " + (int)fc.getOtherEnd().getZ());
@@ -525,35 +566,55 @@ public class MainActivity extends Activity {
         } while(direction.hasSameDirectionAs(newDirection));
 
         String infraInfo;
+        MapNode newMiddleNode;
         if(direction.hasSameDirectionAs(newDirection)) {
             infraInfo = getMostUniqueInfraInformation(n2);
-            mapView.setMiddleNode(n2);
+            newMiddleNode = n2;
         }
         else {
             infraInfo = getMostUniqueInfraInformation(n1);
-            mapView.setMiddleNode(n1);
+            newMiddleNode = n1;
         }
+
+        int color = getResources().getColor(R.color.middle_pin_color);
 
         if(infraInfo.isEmpty()) {
             if(lastNonEmptyInfraInfo.isEmpty()) {
-                String kg = "Keep Going";
-                setTextAndHighlightWithColor(turnString+kg, getResources().getColor(R.color.middle_pin_color), turnString.length(), turnString.length()+kg.length());
-                mapView.setMiddleNode(n1);
+                String kg = "Keep Going.";
+                newMiddleNode = n1;
+
+                if(n1 == path.get(path.size()-1)) {
+                    color = getResources().getColor(R.color.finish_red);
+                    newMiddleNode = null;
+                }
+                setTextAndHighlightWithColor(turnString+kg, color, turnString.length(), turnString.length()+kg.length());
+                mapView.setMiddleNode(newMiddleNode);
+                return;
             }
             else {
-                setTextAndHighlightWithColor(turnString+Goto+lastNonEmptyInfraInfo, getResources().getColor(R.color.middle_pin_color), turnString.length()+Goto.length(), turnString.length()+Goto.length()+lastNonEmptyInfraInfo.length());
-                mapView.setMiddleNode(nonEmptyMiddleNode);
+                infraInfo = lastNonEmptyInfraInfo;
+                newMiddleNode = nonEmptyMiddleNode;
             }
-            return;
         }
 
-        setTextAndHighlightWithColor(turnString+Goto+infraInfo, getResources().getColor(R.color.middle_pin_color), turnString.length()+Goto.length(), turnString.length()+Goto.length()+infraInfo.length());
+        mapView.setMiddleNode(newMiddleNode);
+
+        if(mapView.getMiddleNode() == path.get(path.size()-1) || mapView.getMiddleNode() == null) {
+            mapView.setMiddleNode(null);
+            color = getResources().getColor(R.color.finish_red);
+        }
+
+        setTextAndHighlightWithColor(turnString+Goto+infraInfo+".", color, turnString.length()+Goto.length(), turnString.length()+Goto.length()+infraInfo.length());
     }
 
     private void setTextAndHighlightWithColor(String str, int colorResource, int start, int end) {
+        str = str.trim();
         Spannable spannable = new SpannableString(str);
 
         spannable.setSpan(new ForegroundColorSpan(colorResource), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        if(str.endsWith(destination)) {
+            spannable.setSpan(new ForegroundColorSpan(getResources().getColor(R.color.finish_red)), str.length()-destination.length(), str.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
         navigationTextView.setText(spannable, TextView.BufferType.SPANNABLE);
     }
 
@@ -719,7 +780,7 @@ public class MainActivity extends Activity {
         if(lookingForDirections) {
             relativeLayout.removeAllViews();
             if(!selectingSourceLocation && !selectingDestinationLocation) {
-                relativeLayout.addView(searchView);
+                relativeLayout.addView(searchLayout);
                 lookingForDirections = false;
                 moveToMapView();
             }
@@ -796,8 +857,9 @@ public class MainActivity extends Activity {
         relativeLayout.addView(mapView);
         relativeLayout.addView(floorButtonsLayout);
         relativeLayout.removeView(searchResultsView);
-        relativeLayout.addView(directionsLayout);
         relativeLayout.removeView(navigationLayout);
+        directionsLayout.removeView(directionsTextView);
+        if(searchLayout.indexOfChild(directionsLayout) == -1) searchLayout.addView(directionsLayout);
         directionsButton.setOnClickListener((View view) -> {
             moveToDirections();
         });
@@ -807,6 +869,7 @@ public class MainActivity extends Activity {
     }
 
     private void filterSearchResults(String filterText) {
+        searchResultsView.removeAllViews();
         searchResults.clear();
 
         if(!filterText.isEmpty()) {
@@ -819,9 +882,9 @@ public class MainActivity extends Activity {
     }
 
     private void bringHudToFront() {
-        relativeLayout.bringChildToFront(searchView);
+        relativeLayout.bringChildToFront(searchResultsView);
         relativeLayout.bringChildToFront(floorButtonsLayout);
-        relativeLayout.bringChildToFront(directionsLayout);
+        relativeLayout.bringChildToFront(searchLayout);
     }
 
     private class HeapNode implements Comparable<HeapNode> {
