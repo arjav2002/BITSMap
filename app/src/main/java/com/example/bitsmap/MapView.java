@@ -22,9 +22,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class MapView extends View implements RotationGestureDetector.OnRotationGestureListener {
 
-    //These two constants specify the minimum and maximum zoom
-    private static float MIN_ZOOM = 1f;
-    private static float MAX_ZOOM = 5f;
+    private static float MIN_ZOOM = 5f;
 
     private float scaleFactor = 20.f;
     private ScaleGestureDetector scaleGestureDetector;
@@ -113,6 +111,9 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
 
     private MainActivity mainActivity;
 
+    private float minX, maxX, minY, maxY;
+    private final float initTx, initTy;
+
     public MapView(MainActivity mainActivity, Map<MapNode, List<MapNode>> graph, Map<MapNode, List<Integer>> nodeToInfra, MapNode startNode, List<Infra> infraList) {
         super(mainActivity);
         scaleGestureDetector = new ScaleGestureDetector(getContext(), new ScaleListener());
@@ -121,9 +122,11 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
         ((Activity) getContext()).getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
         displayHeight = displayMetrics.heightPixels;
         displayWidth = displayMetrics.widthPixels;
+        initTx = displayWidth/2;
+        initTy = 3*displayHeight/4;
         worldToScreen = new Matrix();
         worldToScreen.postScale(scaleFactor, -scaleFactor);
-        worldToScreen.postTranslate(displayWidth/2, 3*displayHeight/4);
+        worldToScreen.postTranslate(initTx, initTy);
         lastAngle = 0;
         pathChanged = false;
 
@@ -191,12 +194,18 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
 
         mutex = new ReentrantLock();
         isShowCoordNullable = false;
+
+        minX = minY = Float.POSITIVE_INFINITY;
+        maxX = maxY = Float.NEGATIVE_INFINITY;
+        initTranslateBounds();
     }
 
     // below method is use to generate px from DP.
     public static float pxFromDp(final Context context, final float dp) {
         return dp * context.getResources().getDisplayMetrics().density;
     }
+
+    float[] oldValues = new float[9];
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
@@ -238,7 +247,36 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
                 startFingerY = event.getY();
 
                 if(Math.sqrt(translateX*translateX + translateY*translateY) < MAX_DRAG_SPEED) {
+                    mutex.lock();
+                    worldToScreen.getValues(values);
+
+                    translateX = -translateX;
+                    translateY = -translateY;
+
+                    float[] worldCoordsAtCenter = {displayWidth/2, displayHeight/2, 1};
+                    getWorldCoord(worldCoordsAtCenter);
+                    System.out.println("W@C: " + worldCoordsAtCenter[0] + ", " + worldCoordsAtCenter[1]);
+
+                    float newWorldAtCenterX = worldCoordsAtCenter[0] + values[0] * translateX;
+                    float newWorldAtCenterY = worldCoordsAtCenter[1] + values[4] * translateY;
+
+                    System.out.println("NEW_W@C: " + newWorldAtCenterX + ", " + newWorldAtCenterY);
+
+                    newWorldAtCenterX = Math.max(minX, Math.min(maxX, newWorldAtCenterX));
+                    newWorldAtCenterY = Math.max(minY, Math.min(maxY, newWorldAtCenterY));
+
+                    System.out.println("CLAMPED_W@C: " + newWorldAtCenterX + ", " + newWorldAtCenterY);
+
+                    float[] newScreenCoordinates = {newWorldAtCenterX, newWorldAtCenterY, 1};
+                    getScreenCoords(newScreenCoordinates);
+
+                    translateX = displayWidth/2 - newScreenCoordinates[0];
+                    translateY = displayHeight/2 - newScreenCoordinates[1];
+
+                    System.out.println(translateX + ", " + translateY);
+
                     worldToScreen.postTranslate(translateX, translateY);
+
                 }
                 invalidate();
                 break;
@@ -567,6 +605,9 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
             mutex.lock();
             worldToScreen.getValues(values);
 
+            float newScale = Math.max(MIN_ZOOM, scaleFactor * values[0]);
+            scaleFactor = newScale / values[0];
+
             worldToScreen.postTranslate(-lastSpanX, -lastSpanY);
             worldToScreen.postScale(scaleFactor, scaleFactor);
             worldToScreen.postTranslate(lastSpanX, lastSpanY);
@@ -659,5 +700,25 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
 
         invalidate();
         mutex.unlock();
+    }
+
+    private void setTranslateBounds(boolean[] visited, MapNode node) {
+        if(visited[node.getId()]) return;
+        visited[node.getId()] = true;
+
+        minX = (float) Math.min(minX, node.getPosition().getX());
+        minY = (float) Math.min(minY, node.getPosition().getY());
+        maxX = (float) Math.max(maxX, node.getPosition().getX());
+        maxY = (float) Math.max(maxY, node.getPosition().getY());
+
+        for(MapNode n : graph.get(node)) {
+            setTranslateBounds(visited, n);
+        }
+    }
+
+    private void initTranslateBounds() {
+        Arrays.fill(visited, false);
+        setTranslateBounds(visited, startNode);
+        System.out.println("TRANS: " + minX + ", " + minY + ", " + maxX + ", " + maxY);
     }
 }
