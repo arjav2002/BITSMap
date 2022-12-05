@@ -6,6 +6,8 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.Point;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.util.DisplayMetrics;
@@ -38,7 +40,6 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     private float translateX = 0f;
     private float translateY = 0f;
 
-
     private boolean dragged = true;
     private final int displayWidth;
     private final int displayHeight;
@@ -66,6 +67,8 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     private Paint showCoordTextPaint;
     private Paint highlightNodePaint;
     private Paint middleNodePaint;
+    private Paint arrowPaint;
+
     private MapNode showCoordNode;
     private MapNode middleNode;
     private MapNode highlightNode;
@@ -90,6 +93,8 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     private static final float SCALE_SPEED = 1.00005f;
     private static final float LOC_PIN_WIDTH = 160f;
     private static final float LOC_PIN_HEIGHT = 160f;
+    private static final float TRIANGLE_HEIGHT = 0.75f;
+    private static final float TRIANGLE_WIDTH = 1.75f;
 
     private final float textSize;
 
@@ -107,6 +112,12 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     private Drawable startPin;
     private Drawable middlePin;
     private Drawable disabledIcon;
+    private Drawable stairsUp;
+    private Drawable stairsDown;
+    private Drawable fireExtinguisher;
+    private Drawable elevator;
+    private Drawable stairsRampUp;
+    private Drawable stairsRampDown;
 
     private MainActivity mainActivity;
 
@@ -134,6 +145,12 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
         startPin = getResources().getDrawable(R.drawable.ic_baseline_location_start_24);
         middlePin = getResources().getDrawable(R.drawable.ic_baseline_location_middle_24);
         disabledIcon = getResources().getDrawable(R.drawable.ic_baseline_disabled_by_default_24);
+        stairsUp = getResources().getDrawable(R.drawable.stairs_up);
+        stairsDown = getResources().getDrawable(R.drawable.stairs_down);
+        fireExtinguisher = getResources().getDrawable(R.drawable.fire_extinguisher);
+        elevator = getResources().getDrawable(R.drawable.elevator);
+        stairsRampUp = getResources().getDrawable(R.drawable.stairs_ramp_up);
+        stairsRampDown = getResources().getDrawable(R.drawable.stairs_ramp_down);
 
         this.graph = graph;
         this.nodeToInfra = nodeToInfra;
@@ -161,6 +178,11 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
         showCoordbgPaint = new Paint();
         showCoordbgPaint.setColor(Color.WHITE);
         showCoordbgPaint.setStyle(Paint.Style.FILL);
+
+        arrowPaint = new Paint();
+        arrowPaint.setColor(getResources().getColor(R.color.arrow_color));
+        arrowPaint.setStyle(Paint.Style.FILL_AND_STROKE);
+        arrowPaint.setAntiAlias(true);
 
         this.startNode = startNode;
 
@@ -410,17 +432,37 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
     }
 
     private void drawInfra(Infra infra, Canvas canvas, float ix, float iy) {
+        Drawable icon = disabledIcon;
+
+        switch(infra.getInfratype()) {
+            case StairsUp:
+                icon = ((FloorChanger)infra).isAccessible()? stairsRampUp : stairsUp;
+                break;
+            case StairsDown:
+                icon = ((FloorChanger)infra).isAccessible()? stairsRampDown : stairsDown;
+                break;
+            case DrinkingWater:
+                if(infra.getName().equals("FireExtinguisher")) {
+                    icon = fireExtinguisher;
+                }
+                break;
+            case LiftUp:
+            case LiftDown:
+                icon = elevator;
+                break;
+        }
+
         canvas.scale(1/INFRA_ICON_CANVAS_DRAW_SCALE, 1/INFRA_ICON_CANVAS_DRAW_SCALE);
         ix *= INFRA_ICON_CANVAS_DRAW_SCALE;
         iy *= INFRA_ICON_CANVAS_DRAW_SCALE;
 
-        disabledIcon.setBounds(
+        icon.setBounds(
                 (int) (ix),
                 (int) (iy),
                 (int) (ix + INFRA_ICON_WIDTH*INFRA_ICON_CANVAS_DRAW_SCALE),
                 (int) (iy + INFRA_ICON_HEIGHT*INFRA_ICON_CANVAS_DRAW_SCALE)
         );
-        disabledIcon.draw(canvas);
+        icon.draw(canvas);
         canvas.scale(INFRA_ICON_CANVAS_DRAW_SCALE, INFRA_ICON_CANVAS_DRAW_SCALE);
     }
 
@@ -431,6 +473,46 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
         }
         pathChanged = true;
         invalidate();
+    }
+
+    private void drawTriangle(Vec3D pos, Orientation orientation, Canvas canvas) {
+        Vec3D pos1 = new Vec3D(pos.getX(), pos.getY(), 0);
+        Vec3D pos2, middlePos, pos3;
+        pos2 = middlePos = pos3 = null;
+        switch(orientation) {
+            case Up:
+                pos2 = pos1.add(new Vec3D(TRIANGLE_WIDTH/2, -TRIANGLE_HEIGHT, 0));
+                middlePos = pos2.add(new Vec3D(-TRIANGLE_WIDTH/2, TRIANGLE_HEIGHT/3, 0));
+                pos3 = middlePos.add(new Vec3D(-TRIANGLE_WIDTH/2, -TRIANGLE_HEIGHT/3, 0));
+                break;
+            case Left:
+                pos2 = pos1.add(new Vec3D(TRIANGLE_HEIGHT, TRIANGLE_WIDTH/2, 0));
+                middlePos = pos2.add(new Vec3D(-TRIANGLE_HEIGHT/3, -TRIANGLE_WIDTH/2, 0));
+                pos3 = middlePos.add(new Vec3D(TRIANGLE_HEIGHT/3, -TRIANGLE_WIDTH/2, 0));
+                break;
+            case Right:
+                pos2 = pos1.add(new Vec3D(-TRIANGLE_HEIGHT, TRIANGLE_WIDTH/2, 0));
+                middlePos = pos2.add(new Vec3D(TRIANGLE_HEIGHT/3, -TRIANGLE_WIDTH/2, 0));
+                pos3 = middlePos.add(new Vec3D(-TRIANGLE_HEIGHT/3, -TRIANGLE_WIDTH/2, 0));
+                break;
+            case Down:
+                pos2 = pos1.add(new Vec3D(TRIANGLE_WIDTH/2, TRIANGLE_HEIGHT, 0));
+                middlePos = pos2.add(new Vec3D(-TRIANGLE_WIDTH/2, -TRIANGLE_HEIGHT/3, 0));
+                pos3 = middlePos.add(new Vec3D(-TRIANGLE_WIDTH/2, TRIANGLE_HEIGHT/3, 0));
+        }
+
+        Path path = new Path();
+        path.setFillType(Path.FillType.EVEN_ODD);
+        path.moveTo((float) pos1.getX(), (float) pos1.getY());
+        path.lineTo((float) pos2.getX(), (float) pos2.getY());
+        path.lineTo((float) middlePos.getX(), (float) middlePos.getY());
+        path.lineTo((float) pos3.getX(), (float) pos3.getY());
+        path.lineTo((float) pos1.getX(), (float) pos1.getY());
+        path.close();
+
+        canvas.drawPath(path, arrowPaint);
+
+//        canvas.translate(-(float) (displayWidth-200), -(float) (displayHeight-400));
     }
 
     private void drawPath(Canvas canvas) {
@@ -456,6 +538,18 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
                     (float)n1.getPosition().getY(),
                     (float)n2.getPosition().getX(),
                     (float)n2.getPosition().getY(), linePaint);
+
+            Orientation orientation;
+            if(n1.getPosition().getX() == n2.getPosition().getX()) {
+                if(n1.getPosition().getY() > n2.getPosition().getY()) orientation = Orientation.Down;
+                else orientation = Orientation.Up;
+            }
+            else {
+                if(n1.getPosition().getX() > n2.getPosition().getX()) orientation = Orientation.Left;
+                else orientation = Orientation.Right;
+            }
+
+            drawTriangle(n1.getPosition().add(n2.getPosition()).divide(2), orientation, canvas);
 
             n1 = n2;
             i++;
@@ -526,10 +620,6 @@ public class MapView extends View implements RotationGestureDetector.OnRotationG
             canvas.drawCircle((float)highlightNode.getPosition().getX(), (float)highlightNode.getPosition().getY(), nodeRadius, highlightNodePaint);
 
             drawPinAtNode(personPin, highlightNode, canvas);
-        }
-
-        if(showCoordNode != null) {
-            drawPinAtNode(locationPin, showCoordNode, canvas);
         }
     }
 

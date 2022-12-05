@@ -4,5 +4,6 @@
     android:layout_height="22sp"
     android:layout_width="22sp"
     android:background="@drawable/floor_button_rounded_corners"
+    android:elevation="40dp"
     android:textSize="11sp"
     android:textColor="@color/very_dark_gray" />

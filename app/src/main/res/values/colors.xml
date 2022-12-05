@@ -19,4 +19,6 @@
     <color name="very_dark_gray">#555555</color>
     <color name="middle_pin_color">#DDDD00</color>
     <color name="light_gray">#EEEEEE</color>
+    <color name="map_bg">#FFEFD3</color>
+    <color name="arrow_color">#6666BB</color>
 </resources>

@@ -17,6 +17,8 @@ import androidx.appcompat.widget.SearchView;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import org.w3c.dom.Text;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -76,6 +78,7 @@ public class MainActivity extends Activity {
     private boolean selectingSourceLocation;
     private boolean selectingDestinationLocation;
     private boolean usingWheelChair;
+    private boolean viewingPath;
 
     public Infra startInfra;
     public Infra destinationInfra;
@@ -106,11 +109,12 @@ public class MainActivity extends Activity {
         path = new ArrayList<>();
         searchViewInfra = startInfra = destinationInfra = null;
         usingWheelChair = false;
+        viewingPath = false;
 
         try {
             Scanner sc = new Scanner(getAssets().open("nodes.txt"));
 
-            Vec3D curPos = new Vec3D(0, 0, 0);
+            Vec3D curPos = new Vec3D(0, 0, 1);
             addNodeToList(curPos);
 
             while(sc.hasNextLine()) {
@@ -399,14 +403,18 @@ public class MainActivity extends Activity {
             params1.addRule(RelativeLayout.CENTER_VERTICAL);
             params1.setMargins(0, 0, (int) MapView.pxFromDp(this, 20), (int) MapView.pxFromDp(this, 20));
 
-            directionsTextView = (TextView) LayoutInflater.from(this).inflate(R.layout.directions_textview, null);
-            RelativeLayout.LayoutParams params2 = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
-            params2.setMargins(0, (int)MapView.pxFromDp(this, 10), 0, 0);
-            directionsLayout.addView(directionsTextView);
+            if(directionsLayout.indexOfChild(directionsTextView) == -1) {
+                directionsTextView = (TextView) LayoutInflater.from(this).inflate(R.layout.directions_textview, null);
+                RelativeLayout.LayoutParams params2 = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
+                params2.setMargins(0, (int) MapView.pxFromDp(this, 10), 0, 0);
+                directionsLayout.addView(directionsTextView);
+            }
 
             relativeLayout.addView(directionsLayout, params1);
 
             directionsButton.setOnClickListener((view) -> {
+                viewingPath = true;
+
                 relativeLayout.removeView(sourceSearchLayout);
                 relativeLayout.removeView(destinationSearchLayout);
                 relativeLayout.removeView(directionsLayout);
@@ -418,7 +426,7 @@ public class MainActivity extends Activity {
                 RelativeLayout.LayoutParams focusPathParams = new RelativeLayout.LayoutParams((int) MapView.pxFromDp(this, 70), (int) MapView.pxFromDp(this, 70));
                 focusPathParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
                 focusPathParams.addRule(RelativeLayout.ALIGN_PARENT_END);
-                focusPathParams.setMargins(0, 0, (int) MapView.pxFromDp(this, 10), (int) MapView.pxFromDp(this, 10));
+                focusPathParams.setMargins(0, 0, (int) MapView.pxFromDp(this, 30), (int) MapView.pxFromDp(this, 40));
                 relativeLayout.addView(focusPathButton, focusPathParams);
                 focusPathButton.setOnClickListener((v) -> {
                     if(mapView.getMiddleNode() != null) mapView.centerAndZoomOutWhileMiddlePinNotFullyVisible();
@@ -737,8 +745,8 @@ public class MainActivity extends Activity {
                 moveToFloor(btnFloor);
             });
 
-            currentFloor = 0;
-            if(floor == 0) floorButton.setTextColor(getResources().getColor(R.color.white));
+            currentFloor = 1;
+            if(floor == 1) floorButton.setTextColor(getResources().getColor(R.color.white));
 
             floorButtonsLayout.addView(floorButton, 0);
             floorButton.setTextSize((int)MapView.pxFromDp(this, 12));
@@ -752,6 +760,7 @@ public class MainActivity extends Activity {
 
         Button upArrow = new Button(this);
         Button downArrow = new Button(this);
+        TextView floorsTextview = (TextView) LayoutInflater.from(this).inflate(R.layout.floors_textview, null);
 
         upArrow.setBackground(getResources().getDrawable(R.drawable.ic_baseline_keyboard_arrow_up_24));
         downArrow.setBackground(getResources().getDrawable(R.drawable.ic_baseline_keyboard_arrow_down_24));
@@ -768,6 +777,11 @@ public class MainActivity extends Activity {
         });
 
         floorButtonsLayout.addView(upArrow, 0, arrowParams);
+
+        LinearLayout.LayoutParams tvParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        tvParams.setMargins(0, 0, 0, (int) MapView.pxFromDp(this, 10));
+        floorButtonsLayout.addView(floorsTextview, 0, tvParams);
+
         floorButtonsLayout.addView(downArrow, arrowParams);
 
         // try to refresh floorButtonsLayout, invalidate() with/without requestLayout() doesn't work
@@ -780,9 +794,15 @@ public class MainActivity extends Activity {
         if(lookingForDirections) {
             relativeLayout.removeAllViews();
             if(!selectingSourceLocation && !selectingDestinationLocation) {
-                relativeLayout.addView(searchLayout);
-                lookingForDirections = false;
-                moveToMapView();
+                if(!viewingPath) {
+                    relativeLayout.addView(searchLayout);
+                    lookingForDirections = false;
+                    moveToMapView();
+                }
+                else {
+                    viewingPath = false;
+                    moveToDirections();
+                }
             }
             else {
                 moveToDirections();
@@ -828,13 +848,13 @@ public class MainActivity extends Activity {
 
     private void moveToFloor(int floor) {
         System.out.println(floor);
-        if(floor == 1) {
+        if(floor == 2) {
             mapView.setStartNode(nodeList.get(35));
-            currentFloor = 1;
+            currentFloor = 2;
         }
-        else if(floor == 0) {
+        else if(floor == 1) {
             mapView.setStartNode(nodeList.get(0));
-            currentFloor = 0;
+            currentFloor = 1;
         }
 
         for(int i = 0; i < floorButtonsLayout.getChildCount(); i++) {
@@ -875,6 +895,7 @@ public class MainActivity extends Activity {
         if(!filterText.isEmpty()) {
             for (Infra infra : infraList) {
                 if ((infra.getName()+", Floor: " + (int)infra.getPosition().getZ()).toLowerCase(Locale.ROOT).contains(filterText.toLowerCase(Locale.ROOT))) {
+                    if(infra.getName().toLowerCase(Locale.ROOT).equals("fireextinguisher") || infra.getName().toLowerCase(Locale.ROOT).equals("firehose")) continue;
                     searchResults.add(new SearchResult(infra, infra.getMapNode()));
                 }
             }
